@@ -35,9 +35,15 @@ program
       // Load environment variables
       dotenv.config();
 
-      // If no directory provided, show interactive home screen
+      // If no directory provided, show interactive TUI
       if (!directory) {
-        showInteractiveHome();
+        const { execSync } = require('child_process');
+        try {
+          execSync('npx tsx src/ui/index.tsx', { stdio: 'inherit' });
+        } catch (error) {
+          console.error('Failed to launch TUI. Falling back to simple mode.');
+          showInteractiveHome();
+        }
         return;
       }
 

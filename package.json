@@ -1,6 +1,6 @@
 {
   "name": "vettcode-cli",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "description": "CLI version of VettCode - AI-powered codebase security and quality scanner",
   "main": "dist/cli.js",
   "bin": {
@@ -48,14 +48,23 @@
     "@babel/parser": "^7.26.3",
     "@babel/traverse": "^7.26.5",
     "chalk": "^4.1.2",
-    "commander": "^11.1.0",
-    "ora": "^5.4.1",
     "cli-table3": "^0.6.3",
-    "dotenv": "^16.4.0"
+    "commander": "^11.1.0",
+    "dotenv": "^16.4.0",
+    "ink": "^6.8.0",
+    "ink-select-input": "^6.2.0",
+    "ink-text-input": "^6.0.0",
+    "ora": "^5.4.1",
+    "react": "^19.2.7",
+    "react-dom": "^19.2.7"
   },
   "devDependencies": {
     "@types/babel__traverse": "^7.20.6",
     "@types/node": "^22.10.0",
+    "@types/react": "^19.2.17",
+    "@types/react-dom": "^19.2.3",
+    "esbuild": "^0.28.1",
+    "tsx": "^4.23.0",
     "typescript": "^5.7.0"
   }
 }
