@@ -7,7 +7,8 @@ interface MenuProps {
 }
 
 const menuItems = [
-  { label: 'Start Scan', value: 'scan', description: 'Start a new scan on your codebase. Analyze vulnerabilities, quality issues, and risks.' },
+  { label: 'Scan Current Directory', value: 'scan-current', description: 'Scan the current directory where the terminal is opened.' },
+  { label: 'Scan Custom Directory', value: 'scan', description: 'Start a new scan on a custom directory. Analyze vulnerabilities, quality issues, and risks.' },
   { label: 'View Settings', value: 'settings', description: 'Configure scan options, ignore patterns, and output preferences.' },
   { label: 'Configure AI', value: 'ai', description: 'Set up AI-enhanced analysis with your API keys and model preferences.' },
   { label: 'View Reports', value: 'reports', description: 'View previous scan reports and historical analysis data.' },

@@ -5,6 +5,8 @@ import { StatsPanel } from './StatsPanel';
 import { Capabilities } from './Capabilities';
 import { Menu } from './Menu';
 import { Footer } from './Footer';
+import * as path from 'path';
+import { execSync } from 'child_process';
 
 type ViewState = 'home' | 'scan' | 'settings' | 'ai' | 'reports' | 'docs';
 
@@ -13,6 +15,16 @@ export const App: React.FC = () => {
 
   const handleMenuSelect = (item: string) => {
     switch (item) {
+      case 'scan-current':
+        // Scan current directory
+        const currentDir = process.cwd();
+        try {
+          execSync(`node dist/cli.js "${currentDir}"`, { stdio: 'inherit' });
+        } catch (error) {
+          console.error('Scan failed');
+        }
+        process.exit(0);
+        break;
       case 'scan':
         setView('scan');
         break;
