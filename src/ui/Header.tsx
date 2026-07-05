@@ -3,17 +3,17 @@ import { Box, Text } from 'ink';
 
 export const Header: React.FC = () => {
   return (
-    <Box flexDirection="column" marginBottom={1}>
+    <Box flexDirection="column">
       <Box>
-        <Text bold color="cyan" fontSize={20}>
+        <Text bold color="cyan">
           VettCode
         </Text>
-        <Text color="gray" dimColor>
+        <Text color="blue" dimColor>
           {' '}
           CLI
         </Text>
       </Box>
-      <Text color="blue">
+      <Text color="white">
         Enterprise-Grade Code Security Scanner
       </Text>
       <Text color="gray" dimColor>

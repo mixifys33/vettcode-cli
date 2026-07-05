@@ -7,8 +7,7 @@ interface MenuProps {
 }
 
 const menuItems = [
-  { label: 'Scan Current Directory', value: 'scan-current', description: 'Scan the current directory where the terminal is opened.' },
-  { label: 'Scan Custom Directory', value: 'scan', description: 'Start a new scan on a custom directory. Analyze vulnerabilities, quality issues, and risks.' },
+  { label: 'Start Scan', value: 'scan', description: 'Start a new scan on your codebase. Analyze vulnerabilities, quality issues, and risks.' },
   { label: 'View Settings', value: 'settings', description: 'Configure scan options, ignore patterns, and output preferences.' },
   { label: 'Configure AI', value: 'ai', description: 'Set up AI-enhanced analysis with your API keys and model preferences.' },
   { label: 'View Reports', value: 'reports', description: 'View previous scan reports and historical analysis data.' },
@@ -20,23 +19,45 @@ export const Menu: React.FC<MenuProps> = ({ onSelect }) => {
   const [selectedItem, setSelectedItem] = useState(menuItems[0]);
 
   return (
-    <Box flexDirection="row" width={80}>
-      <Box flexDirection="column" width={40}>
+    <Box flexDirection="column">
+      {/* Quick Start Section */}
+      <Box flexDirection="column" marginBottom={2}>
         <Text bold color="white" marginBottom={1}>
-          Main Menu
-        </Text>
-        <SelectInput
-          items={menuItems}
-          onSelect={(item: any) => onSelect(item.value)}
-        />
-      </Box>
-      <Box flexDirection="column" width={40} paddingLeft={2}>
-        <Text bold color="white" marginBottom={1}>
-          Description
+          Quick Start
         </Text>
         <Text color="gray" dimColor>
-          {selectedItem.description}
+          vettcode {'<directory>'}
         </Text>
+        <Text color="gray" dimColor>
+          vettcode --mode deep
+        </Text>
+        <Text color="gray" dimColor>
+          vettcode --no-ai
+        </Text>
+      </Box>
+
+      {/* Main Menu Section */}
+      <Box flexDirection="row">
+        <Box flexDirection="column" width={30}>
+          <Text bold color="white" marginBottom={1}>
+            Main Menu
+          </Text>
+          <SelectInput
+            items={menuItems}
+            onSelect={(item: any) => {
+              setSelectedItem(item);
+              onSelect(item.value);
+            }}
+          />
+        </Box>
+        <Box flexDirection="column" width={25} paddingLeft={2}>
+          <Text bold color="white" marginBottom={1}>
+            Description
+          </Text>
+          <Text color="gray" dimColor>
+            {selectedItem.description}
+          </Text>
+        </Box>
       </Box>
     </Box>
   );

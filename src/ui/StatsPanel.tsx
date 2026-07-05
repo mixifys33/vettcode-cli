@@ -10,9 +10,9 @@ const stats = [
 
 export const StatsPanel: React.FC = () => {
   return (
-    <Box flexDirection="column" marginBottom={1}>
+    <Box flexDirection="column">
       {stats.map((stat, index) => (
-        <Box key={index}>
+        <Box key={index} marginBottom={1}>
           <Text color="yellow">{stat.icon}</Text>
           <Text color="white"> {stat.title}</Text>
           <Text color="gray" dimColor>

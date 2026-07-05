@@ -1,11 +1,10 @@
 import React, { useState } from 'react';
-import { Box, render, Text } from 'ink';
+import { Box, Text } from 'ink';
 import { Header } from './Header';
 import { StatsPanel } from './StatsPanel';
 import { Capabilities } from './Capabilities';
 import { Menu } from './Menu';
 import { Footer } from './Footer';
-import * as path from 'path';
 import { execSync } from 'child_process';
 
 type ViewState = 'home' | 'scan' | 'settings' | 'ai' | 'reports' | 'docs';
@@ -16,7 +15,6 @@ export const App: React.FC = () => {
   const handleMenuSelect = (item: string) => {
     switch (item) {
       case 'scan-current':
-        // Scan current directory
         const currentDir = process.cwd();
         try {
           execSync(`node dist/cli.js "${currentDir}"`, { stdio: 'inherit' });
@@ -48,43 +46,38 @@ export const App: React.FC = () => {
 
   if (view === 'home') {
     return (
-      <Box flexDirection="column" padding={1}>
-        <Header />
-        <Box flexDirection="row" marginBottom={1}>
-          <Box width={40}>
+      <Box flexDirection="column" paddingX={2} paddingY={1}>
+        {/* Top Row: Header (Left) + Stats Panel (Right) */}
+        <Box flexDirection="row" justifyContent="space-between" marginBottom={2}>
+          <Box width={50}>
+            <Header />
+          </Box>
+          <Box width={50}>
             <StatsPanel />
           </Box>
         </Box>
-        <Box flexDirection="row">
-          <Box width={40}>
+
+        {/* Main Body: Capabilities (Left) + Interaction Panel (Right) */}
+        <Box flexDirection="row" justifyContent="space-between" flexGrow={1}>
+          <Box width={50} paddingRight={2}>
             <Capabilities />
           </Box>
-          <Box width={40} paddingLeft={2}>
-            <Text bold color="white" marginBottom={1}>
-              Quick Start
-            </Text>
-            <Text color="gray" dimColor>
-              vettcode {'<directory>'}
-            </Text>
-            <Text color="gray" dimColor>
-              vettcode --mode deep
-            </Text>
-            <Text color="gray" dimColor>
-              vettcode --no-ai
-            </Text>
-            <Box marginTop={1}>
-              <Menu onSelect={handleMenuSelect} />
-            </Box>
+          <Box width={50} paddingLeft={2}>
+            <Menu onSelect={handleMenuSelect} />
           </Box>
         </Box>
-        <Footer />
+
+        {/* Footer */}
+        <Box marginTop={2}>
+          <Footer />
+        </Box>
       </Box>
     );
   }
 
   if (view === 'scan') {
     return (
-      <Box flexDirection="column" padding={1}>
+      <Box flexDirection="column" paddingX={2} paddingY={1}>
         <Header />
         <Text color="yellow">Scan View - Coming Soon</Text>
         <Text color="gray" dimColor>
@@ -96,7 +89,7 @@ export const App: React.FC = () => {
 
   if (view === 'settings') {
     return (
-      <Box flexDirection="column" padding={1}>
+      <Box flexDirection="column" paddingX={2} paddingY={1}>
         <Header />
         <Text color="yellow">Settings View - Coming Soon</Text>
         <Text color="gray" dimColor>
@@ -108,7 +101,7 @@ export const App: React.FC = () => {
 
   if (view === 'ai') {
     return (
-      <Box flexDirection="column" padding={1}>
+      <Box flexDirection="column" paddingX={2} paddingY={1}>
         <Header />
         <Text color="yellow">AI Configuration View - Coming Soon</Text>
         <Text color="gray" dimColor>
@@ -120,7 +113,7 @@ export const App: React.FC = () => {
 
   if (view === 'reports') {
     return (
-      <Box flexDirection="column" padding={1}>
+      <Box flexDirection="column" paddingX={2} paddingY={1}>
         <Header />
         <Text color="yellow">Reports View - Coming Soon</Text>
         <Text color="gray" dimColor>
@@ -132,7 +125,7 @@ export const App: React.FC = () => {
 
   if (view === 'docs') {
     return (
-      <Box flexDirection="column" padding={1}>
+      <Box flexDirection="column" paddingX={2} paddingY={1}>
         <Header />
         <Text color="yellow">Documentation View - Coming Soon</Text>
         <Text color="gray" dimColor>

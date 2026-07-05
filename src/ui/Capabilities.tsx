@@ -11,8 +11,8 @@ const capabilities = [
 
 export const Capabilities: React.FC = () => {
   return (
-    <Box flexDirection="column" marginBottom={1}>
-      <Text bold color="white" marginBottom={1}>
+    <Box flexDirection="column">
+      <Text bold color="white" marginBottom={2}>
         Capabilities
       </Text>
       {capabilities.map((cap, index) => (
