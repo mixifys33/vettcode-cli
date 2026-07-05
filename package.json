@@ -1,6 +1,6 @@
 {
   "name": "vettcode-cli",
-  "version": "1.0.6",
+  "version": "1.0.7",
   "description": "CLI version of VettCode - AI-powered codebase security and quality scanner",
   "main": "dist/cli.js",
   "bin": {

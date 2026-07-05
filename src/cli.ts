@@ -38,8 +38,10 @@ program
       // If no directory provided, show interactive TUI
       if (!directory) {
         const { execSync } = require('child_process');
+        const path = require('path');
+        const uiPath = path.join(__dirname, '..', 'src', 'ui', 'index.tsx');
         try {
-          execSync('npx tsx src/ui/index.tsx', { stdio: 'inherit' });
+          execSync(`npx tsx "${uiPath}"`, { stdio: 'inherit' });
         } catch (error) {
           console.error('Failed to launch TUI. Falling back to simple mode.');
           showInteractiveHome();
