@@ -10,6 +10,7 @@ import * as path from "path";
 import chalk from "chalk";
 import ora from "ora";
 import Table from "cli-table3";
+import * as readline from "readline";
 import { collectFiles } from "./file-collector";
 import { runSmartScan } from "./cli-scan-orchestrator";
 import type { VettReport } from "./types";
@@ -34,9 +35,9 @@ program
       // Load environment variables
       dotenv.config();
 
-      // If no directory provided, show home screen
+      // If no directory provided, show interactive home screen
       if (!directory) {
-        showHomeScreen();
+        showInteractiveHome();
         return;
       }
 
@@ -110,12 +111,90 @@ program
 
 program.parse();
 
-function showHomeScreen(): void {
-  console.log("\n" + chalk.bold.cyan("═".repeat(70)));
-  console.log(chalk.bold.cyan("  VettCode CLI - Enterprise-Grade Code Security Scanner"));
-  console.log(chalk.bold.cyan("═".repeat(70)));
+async function showInteractiveHome(): Promise<void> {
+  const rl = readline.createInterface({
+    input: process.stdin,
+    output: process.stdout
+  });
 
-  console.log(chalk.bold.white("\n  Advanced static analysis powered by state-of-the-art AI models\n"));
+  while (true) {
+    showHomeScreen();
+
+    console.log(chalk.bold.cyan("\n  Options:\n"));
+    console.log(chalk.white("  [1] Scan a directory"));
+    console.log(chalk.white("  [2] View all commands"));
+    console.log(chalk.white("  [3] Support & Resources"));
+    console.log(chalk.white("  [4] Exit"));
+
+    const answer = await new Promise<string>((resolve) => {
+      rl.question(chalk.gray("\n  Select an option: "), resolve);
+    });
+
+    console.clear();
+
+    switch (answer.trim()) {
+      case "1":
+        const dirPath = await new Promise<string>((resolve) => {
+          rl.question(chalk.gray("  Enter directory path to scan: "), resolve);
+        });
+        rl.close();
+        // Trigger scan with the directory
+        process.argv.push(dirPath);
+        program.parse(process.argv);
+        return;
+
+      case "2":
+        showAllCommands();
+        await new Promise<void>((resolve) => {
+          rl.question(chalk.gray("\n  Press Enter to continue..."), () => resolve());
+        });
+        break;
+
+      case "3":
+        showSupportResources();
+        await new Promise<void>((resolve) => {
+          rl.question(chalk.gray("\n  Press Enter to continue..."), () => resolve());
+        });
+        break;
+
+      case "4":
+        rl.close();
+        console.log(chalk.gray("\n  Goodbye!\n"));
+        process.exit(0);
+
+      default:
+        console.log(chalk.red("\n  Invalid option. Please try again.\n"));
+        await new Promise<void>((resolve) => {
+          rl.question(chalk.gray("  Press Enter to continue..."), () => resolve());
+        });
+    }
+  }
+}
+
+function showAllCommands(): void {
+  console.log(chalk.bold.cyan("\n  All Commands:\n"));
+  console.log(chalk.white("  vettcode <directory>              ") + chalk.gray("# Scan a directory"));
+  console.log(chalk.white("  vettcode <directory> -o <file>   ") + chalk.gray("# Output report to JSON file"));
+  console.log(chalk.white("  vettcode <directory> -i <patterns>") + chalk.gray("# Comma-separated ignore patterns"));
+  console.log(chalk.white("  vettcode <directory> --json       ") + chalk.gray("# Output JSON format to stdout"));
+  console.log(chalk.white("  vettcode <directory> --mode <mode>") + chalk.gray("# Scan mode: quick or deep"));
+  console.log(chalk.white("  vettcode <directory> --no-ai     ") + chalk.gray("# Disable AI analysis"));
+  console.log(chalk.white("  vettcode --help                   ") + chalk.gray("# Show help information"));
+  console.log(chalk.white("  vettcode --version                ") + chalk.gray("# Show version number"));
+}
+
+function showSupportResources(): void {
+  console.log(chalk.bold.cyan("\n  Support & Resources:\n"));
+  console.log(chalk.white("  GitHub Repository:  ") + chalk.cyan("https://github.com/mixifys33/vettcode-cli"));
+  console.log(chalk.white("  npm Package:       ") + chalk.cyan("https://www.npmjs.com/package/vettcode-cli"));
+  console.log(chalk.white("  Report Issues:     ") + chalk.cyan("https://github.com/mixifys33/vettcode-cli/issues"));
+  console.log(chalk.white("  Documentation:     ") + chalk.cyan("https://github.com/mixifys33/vettcode-cli#readme"));
+}
+
+function showHomeScreen(): void {
+  console.clear();
+  console.log(chalk.bold.cyan("\n  VettCode CLI - Enterprise-Grade Code Security Scanner\n"));
+  console.log(chalk.bold.white("  Advanced static analysis powered by state-of-the-art AI models\n"));
 
   // Hero section with impressive stats
   const heroTable = new Table({
@@ -154,34 +233,22 @@ function showHomeScreen(): void {
 
   console.log(heroTable.toString());
 
-  console.log(chalk.bold.cyan("\n  Quick Start:\n"));
+  console.log(chalk.gray("\n  Quick Start Commands:\n"));
   console.log(chalk.white("  vettcode <directory>              ") + chalk.gray("# Scan a directory"));
   console.log(chalk.white("  vettcode <directory> --mode deep  ") + chalk.gray("# Deep scan mode"));
   console.log(chalk.white("  vettcode <directory> --no-ai     ") + chalk.gray("# Static analysis only"));
   console.log(chalk.white("  vettcode <directory> -o report.json") + chalk.gray("# Save report to file"));
 
-  console.log(chalk.bold.cyan("\n  All Commands:\n"));
-  console.log(chalk.white("  vettcode <directory>              ") + chalk.gray("# Scan a directory"));
-  console.log(chalk.white("  vettcode <directory> -o <file>   ") + chalk.gray("# Output report to JSON file"));
-  console.log(chalk.white("  vettcode <directory> -i <patterns>") + chalk.gray("# Comma-separated ignore patterns"));
-  console.log(chalk.white("  vettcode <directory> --json       ") + chalk.gray("# Output JSON format to stdout"));
-  console.log(chalk.white("  vettcode <directory> --mode <mode>") + chalk.gray("# Scan mode: quick or deep"));
-  console.log(chalk.white("  vettcode <directory> --no-ai     ") + chalk.gray("# Disable AI analysis"));
-  console.log(chalk.white("  vettcode --help                   ") + chalk.gray("# Show help information"));
-  console.log(chalk.white("  vettcode --version                ") + chalk.gray("# Show version number"));
-
-  console.log(chalk.bold.cyan("\n  AI Enhancement (Optional):\n"));
+  console.log(chalk.gray("\n  AI Enhancement (Optional):\n"));
   console.log(chalk.gray("  Enable advanced AI analysis by configuring your API key in .env"));
   console.log(chalk.gray("  Uses latest generation AI models for enhanced detection capabilities"));
   console.log(chalk.gray("  Supports custom model configurations for specialized analysis"));
 
-  console.log(chalk.bold.cyan("\n  Support & Resources:\n"));
-  console.log(chalk.white("  GitHub Repository:  ") + chalk.cyan("https://github.com/mixifys33/vettcode-cli"));
-  console.log(chalk.white("  npm Package:       ") + chalk.cyan("https://www.npmjs.com/package/vettcode-cli"));
-  console.log(chalk.white("  Report Issues:     ") + chalk.cyan("https://github.com/mixifys33/vettcode-cli/issues"));
-  console.log(chalk.white("  Documentation:     ") + chalk.cyan("https://github.com/mixifys33/vettcode-cli#readme"));
-
-  console.log(chalk.bold.cyan("\n═".repeat(70) + "\n"));
+  // Credits at bottom
+  console.log(chalk.gray("\n" + "─".repeat(70)));
+  console.log(chalk.gray("  Powered by AD-Technologies and AI Enterprises"));
+  console.log(chalk.gray("  Special thanks: Masereka Adorable, Hacker X"));
+  console.log(chalk.gray("─".repeat(70) + "\n"));
 }
 
 function displayReport(report: VettReport, stats?: any): void {
