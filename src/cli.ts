@@ -39,7 +39,25 @@ program
       if (!directory) {
         const { execSync } = require('child_process');
         const path = require('path');
-        const uiPath = path.join(__dirname, '..', 'src', 'ui', 'index.tsx');
+        const fs = require('fs');
+        
+        // Try to find the UI files - check multiple possible locations
+        const possiblePaths = [
+          path.join(__dirname, '..', 'src', 'ui', 'index.tsx'), // Development: dist/cli.js -> src/ui
+          path.join(__dirname, '..', '..', 'src', 'ui', 'index.tsx'), // Installed: node_modules/vettcode-cli/dist/cli.js -> src/ui
+          path.join(__dirname, '..', '..', '..', 'vettcode-cli', 'src', 'ui', 'index.tsx'), // Global install
+          path.join(process.cwd(), 'node_modules', 'vettcode-cli', 'src', 'ui', 'index.tsx'),
+          path.join(process.cwd(), 'src', 'ui', 'index.tsx'), // Current directory
+        ];
+        
+        let uiPath = possiblePaths.find(p => fs.existsSync(p));
+        
+        if (!uiPath) {
+          console.error('Failed to find UI files. Falling back to simple mode.');
+          showInteractiveHome();
+          return;
+        }
+        
         try {
           execSync(`npx tsx "${uiPath}"`, { stdio: 'inherit' });
         } catch (error) {
