@@ -112,46 +112,47 @@ program.parse();
 
 function showHomeScreen(): void {
   console.log("\n" + chalk.bold.cyan("═".repeat(70)));
-  console.log(chalk.bold.cyan("  VettCode CLI - AI-Powered Code Security Scanner"));
+  console.log(chalk.bold.cyan("  VettCode CLI - Enterprise-Grade Code Security Scanner"));
   console.log(chalk.bold.cyan("═".repeat(70)));
 
-  console.log(chalk.bold.white("\n  Scan your codebase for security vulnerabilities and quality issues\n"));
+  console.log(chalk.bold.white("\n  Advanced static analysis powered by state-of-the-art AI models\n"));
 
-  const table = new Table({
+  // Hero section with impressive stats
+  const heroTable = new Table({
     head: [
-      chalk.bold("Feature"),
-      chalk.bold("Description")
+      chalk.bold("Capability"),
+      chalk.bold("Impact")
     ],
-    colWidths: [20, 48],
+    colWidths: [35, 33],
     wordWrap: true,
   });
 
-  table.push([
-    chalk.green("[+] Static Analysis"),
-    "350+ vulnerability patterns"
+  heroTable.push([
+    chalk.cyan.bold("350+ Security Patterns"),
+    chalk.white("Comprehensive vulnerability detection")
   ]);
-  table.push([
-    chalk.green("[+] AST Extraction"),
-    "Intelligent code section extraction"
+  heroTable.push([
+    chalk.cyan.bold("AST-Based Analysis"),
+    chalk.white("Intelligent code extraction")
   ]);
-  table.push([
-    chalk.green("[+] AI Analysis"),
-    "Deep analysis via OpenRouter (optional)"
+  heroTable.push([
+    chalk.cyan.bold("<3% False Positive Rate"),
+    chalk.white("Multi-layer verification system")
   ]);
-  table.push([
-    chalk.green("[+] Verification"),
-    "Cross-validation for <3% false positives"
+  heroTable.push([
+    chalk.cyan.bold("Data Flow Tracking"),
+    chalk.white("End-to-end input analysis")
   ]);
-  table.push([
-    chalk.green("[+] Data Flow"),
-    "Track user input to dangerous sinks"
+  heroTable.push([
+    chalk.cyan.bold("Control Flow Analysis"),
+    chalk.white("Error handling validation")
   ]);
-  table.push([
-    chalk.green("[+] Control Flow"),
-    "Identify error handling gaps"
+  heroTable.push([
+    chalk.cyan.bold("Cross-File Reference Graph"),
+    chalk.white("Context-aware security checks")
   ]);
 
-  console.log(table.toString());
+  console.log(heroTable.toString());
 
   console.log(chalk.bold.cyan("\n  Quick Start:\n"));
   console.log(chalk.white("  vettcode <directory>              ") + chalk.gray("# Scan a directory"));
@@ -169,10 +170,10 @@ function showHomeScreen(): void {
   console.log(chalk.white("  vettcode --help                   ") + chalk.gray("# Show help information"));
   console.log(chalk.white("  vettcode --version                ") + chalk.gray("# Show version number"));
 
-  console.log(chalk.bold.cyan("\n  AI Setup (Optional):\n"));
-  console.log(chalk.gray("  1. Get API key from https://openrouter.ai/keys"));
-  console.log(chalk.gray("  2. Create .env file with OPENROUTER_API_KEY_1=your-key"));
-  console.log(chalk.gray("  3. Run vettcode normally for AI-enhanced analysis"));
+  console.log(chalk.bold.cyan("\n  AI Enhancement (Optional):\n"));
+  console.log(chalk.gray("  Enable advanced AI analysis by configuring your API key in .env"));
+  console.log(chalk.gray("  Uses latest generation AI models for enhanced detection capabilities"));
+  console.log(chalk.gray("  Supports custom model configurations for specialized analysis"));
 
   console.log(chalk.bold.cyan("\n  Support & Resources:\n"));
   console.log(chalk.white("  GitHub Repository:  ") + chalk.cyan("https://github.com/mixifys33/vettcode-cli"));
