@@ -23,23 +23,29 @@ program
   .version("1.0.0");
 
 program
-  .argument("<directory>", "Directory to scan")
+  .argument("[directory]", "Directory to scan")
   .option("-o, --output <file>", "Output report to JSON file")
   .option("-i, --ignore <patterns>", "Comma-separated ignore patterns")
   .option("--json", "Output JSON format")
   .option("--mode <mode>", "Scan mode: quick or deep (default: quick)")
   .option("--no-ai", "Disable AI analysis (static only)")
-  .action(async (directory: string, options) => {
+  .action(async (directory: string | undefined, options) => {
     try {
       // Load environment variables
       dotenv.config();
 
-      console.log(chalk.bold.cyan("\n🔍 VettCode CLI - Security Scanner\n"));
+      // If no directory provided, show home screen
+      if (!directory) {
+        showHomeScreen();
+        return;
+      }
+
+      console.log(chalk.bold.cyan("\n[+] VettCode CLI - Security Scanner\n"));
 
       // Validate directory
       const resolvedPath = path.resolve(directory);
       if (!fs.existsSync(resolvedPath)) {
-        console.error(chalk.red(`❌ Error: Directory not found: ${directory}`));
+        console.error(chalk.red(`[X] Error: Directory not found: ${directory}`));
         process.exit(1);
       }
 
@@ -54,7 +60,7 @@ program
       collectSpinner.succeed(`Collected ${files.length} files`);
 
       if (files.length === 0) {
-        console.warn(chalk.yellow("⚠️  No code files found to scan"));
+        console.warn(chalk.yellow("[!] No code files found to scan"));
         process.exit(0);
       }
 
@@ -87,7 +93,7 @@ program
       if (options.output) {
         const outputPath = path.resolve(options.output);
         fs.writeFileSync(outputPath, JSON.stringify(report, null, 2));
-        console.log(chalk.green(`\n📄 Report saved to: ${outputPath}`));
+        console.log(chalk.green(`\n[*] Report saved to: ${outputPath}`));
       }
 
       // Exit with error code if critical issues found
@@ -97,12 +103,85 @@ program
       }
 
     } catch (error) {
-      console.error(chalk.red(`\n❌ Error: ${error instanceof Error ? error.message : String(error)}`));
+      console.error(chalk.red(`\n[X] Error: ${error instanceof Error ? error.message : String(error)}`));
       process.exit(1);
     }
   });
 
 program.parse();
+
+function showHomeScreen(): void {
+  console.log("\n" + chalk.bold.cyan("═".repeat(70)));
+  console.log(chalk.bold.cyan("  VettCode CLI - AI-Powered Code Security Scanner"));
+  console.log(chalk.bold.cyan("═".repeat(70)));
+
+  console.log(chalk.bold.white("\n  Scan your codebase for security vulnerabilities and quality issues\n"));
+
+  const table = new Table({
+    head: [
+      chalk.bold("Feature"),
+      chalk.bold("Description")
+    ],
+    colWidths: [20, 48],
+    wordWrap: true,
+  });
+
+  table.push([
+    chalk.green("[+] Static Analysis"),
+    "350+ vulnerability patterns"
+  ]);
+  table.push([
+    chalk.green("[+] AST Extraction"),
+    "Intelligent code section extraction"
+  ]);
+  table.push([
+    chalk.green("[+] AI Analysis"),
+    "Deep analysis via OpenRouter (optional)"
+  ]);
+  table.push([
+    chalk.green("[+] Verification"),
+    "Cross-validation for <3% false positives"
+  ]);
+  table.push([
+    chalk.green("[+] Data Flow"),
+    "Track user input to dangerous sinks"
+  ]);
+  table.push([
+    chalk.green("[+] Control Flow"),
+    "Identify error handling gaps"
+  ]);
+
+  console.log(table.toString());
+
+  console.log(chalk.bold.cyan("\n  Quick Start:\n"));
+  console.log(chalk.white("  vettcode <directory>              ") + chalk.gray("# Scan a directory"));
+  console.log(chalk.white("  vettcode <directory> --mode deep  ") + chalk.gray("# Deep scan mode"));
+  console.log(chalk.white("  vettcode <directory> --no-ai     ") + chalk.gray("# Static analysis only"));
+  console.log(chalk.white("  vettcode <directory> -o report.json") + chalk.gray("# Save report to file"));
+
+  console.log(chalk.bold.cyan("\n  All Commands:\n"));
+  console.log(chalk.white("  vettcode <directory>              ") + chalk.gray("# Scan a directory"));
+  console.log(chalk.white("  vettcode <directory> -o <file>   ") + chalk.gray("# Output report to JSON file"));
+  console.log(chalk.white("  vettcode <directory> -i <patterns>") + chalk.gray("# Comma-separated ignore patterns"));
+  console.log(chalk.white("  vettcode <directory> --json       ") + chalk.gray("# Output JSON format to stdout"));
+  console.log(chalk.white("  vettcode <directory> --mode <mode>") + chalk.gray("# Scan mode: quick or deep"));
+  console.log(chalk.white("  vettcode <directory> --no-ai     ") + chalk.gray("# Disable AI analysis"));
+  console.log(chalk.white("  vettcode --help                   ") + chalk.gray("# Show help information"));
+  console.log(chalk.white("  vettcode --version                ") + chalk.gray("# Show version number"));
+
+  console.log(chalk.bold.cyan("\n  AI Setup (Optional):\n"));
+  console.log(chalk.gray("  1. Get API key from https://openrouter.ai/keys"));
+  console.log(chalk.gray("  2. Create .env file with OPENROUTER_API_KEY_1=your-key"));
+  console.log(chalk.gray("  3. Run vettcode normally for AI-enhanced analysis"));
+
+  console.log(chalk.bold.cyan("\n  Support & Resources:\n"));
+  console.log(chalk.white("  GitHub Repository:  ") + chalk.cyan("https://github.com/mixifys33/vettcode-cli"));
+  console.log(chalk.white("  npm Package:       ") + chalk.cyan("https://www.npmjs.com/package/vettcode-cli"));
+  console.log(chalk.white("  Report Issues:     ") + chalk.cyan("https://github.com/mixifys33/vettcode-cli/issues"));
+  console.log(chalk.white("  Documentation:     ") + chalk.cyan("https://github.com/mixifys33/vettcode-cli#readme"));
+
+  console.log(chalk.bold.cyan("\n═".repeat(70) + "\n"));
+}
 
 function displayReport(report: VettReport, stats?: any): void {
   // Score header
@@ -118,7 +197,7 @@ function displayReport(report: VettReport, stats?: any): void {
   console.log(chalk.gray(`\n${report.summary}`));
   
   // Executive verdict
-  console.log(chalk.bold.cyan(`\n📋 Executive Verdict:`));
+  console.log(chalk.bold.cyan(`\n[*] Executive Verdict:`));
   console.log(chalk.white(report.executiveVerdict));
 
   // Findings by severity
@@ -130,7 +209,7 @@ function displayReport(report: VettReport, stats?: any): void {
     info: report.findings.filter(f => f.severity === "info"),
   };
 
-  console.log(chalk.bold.cyan(`\n🔍 Findings by Severity:`));
+  console.log(chalk.bold.cyan(`\n[*] Findings by Severity:`));
   console.log(`  ${chalk.red.bold(findingsBySeverity.critical.length)} Critical`);
   console.log(`  ${chalk.red(findingsBySeverity.high.length)} High`);
   console.log(`  ${chalk.yellow(findingsBySeverity.medium.length)} Medium`);
@@ -139,23 +218,23 @@ function displayReport(report: VettReport, stats?: any): void {
 
   // Critical blockers
   if (report.criticalBlockers.length > 0) {
-    console.log(chalk.bold.red(`\n🚨 Critical Blockers:`));
+    console.log(chalk.bold.red(`\n[!] Critical Blockers:`));
     report.criticalBlockers.forEach(blocker => {
-      console.log(chalk.red(`  • ${blocker}`));
+      console.log(chalk.red(`  - ${blocker}`));
     });
   }
 
   // Strengths
   if (report.strengths.length > 0) {
-    console.log(chalk.bold.green(`\n✅ Strengths:`));
+    console.log(chalk.bold.green(`\n[+] Strengths:`));
     report.strengths.forEach(strength => {
-      console.log(chalk.green(`  • ${strength}`));
+      console.log(chalk.green(`  - ${strength}`));
     });
   }
 
   // Detailed findings table
   if (report.findings.length > 0) {
-    console.log(chalk.bold.cyan(`\n📝 Detailed Findings:`));
+    console.log(chalk.bold.cyan(`\n[*] Detailed Findings:`));
     
     const table = new Table({
       head: [
@@ -192,7 +271,7 @@ function displayReport(report: VettReport, stats?: any): void {
   }
 
   // Metadata
-  console.log(chalk.bold.gray(`\n📊 Scan Metadata:`));
+  console.log(chalk.bold.gray(`\n[*] Scan Metadata:`));
   console.log(chalk.gray(`  Project: ${report.metadata?.projectName}`));
   console.log(chalk.gray(`  Files Scanned: ${stats?.filesScanned || report.metadata?.filesScanned}`));
   console.log(chalk.gray(`  Lines Scanned: ${stats?.linesScanned || report.metadata?.linesScanned}`));
