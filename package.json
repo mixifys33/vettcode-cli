@@ -29,11 +29,11 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/yourusername/vettcode-cli.git"
+    "url": "https://github.com/mixifys33/vettcode-cli.git"
   },
-  "homepage": "https://github.com/yourusername/vettcode-cli#readme",
+  "homepage": "https://github.com/mixifys33/vettcode-cli#readme",
   "bugs": {
-    "url": "https://github.com/yourusername/vettcode-cli/issues"
+    "url": "https://github.com/mixifys33/vettcode-cli/issues"
   },
   "files": [
     "dist",
