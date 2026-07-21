@@ -109,8 +109,8 @@ export async function runSmartScan(
       aiFindings = await runAIAnalysisCLI(projectName, extractedSections, staticFindings, onProgress, mode);
       aiUsed = true;
     } catch (error) {
-      console.warn('[AI FALLBACK] AI failed, running ENHANCED static analysis');
-      console.error('[AI Analysis] Error:', error);
+      // Run ENHANCED static analysis as fallback (silently for TUI)
+      onProgress("Enhanced Analysis", 50, "AI unavailable - running comprehensive static analysis");
       
       // Run ENHANCED static analysis as fallback
       onProgress("Enhanced Analysis", 50, "AI unavailable - running comprehensive static analysis (85% coverage)");

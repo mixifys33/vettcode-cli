@@ -55,13 +55,25 @@ export const Results: React.FC<ResultsProps> = ({ report, onBack, onExport }) =>
       <Box flexDirection="column" marginTop={2} marginBottom={2}>
         <Box marginBottom={1}>
           <Text bold color="cyan">
-            [~] SCAN RESULTS
+            ──────────────────────────────────────────────────
+          </Text>
+        </Box>
+        
+        <Box marginBottom={1}>
+          <Text bold color="cyan">
+            {'  '}SCAN RESULTS
+          </Text>
+        </Box>
+        
+        <Box marginBottom={2}>
+          <Text bold color="cyan">
+            ──────────────────────────────────────────────────
           </Text>
         </Box>
 
         {/* Score */}
         <Box marginBottom={2}>
-          <Text color="white">Score: </Text>
+          <Text color="white">  Score: </Text>
           <Text bold color={getScoreColor(report.score)}>
             {report.score}/100
           </Text>
@@ -69,9 +81,9 @@ export const Results: React.FC<ResultsProps> = ({ report, onBack, onExport }) =>
         </Box>
 
         {/* Summary */}
-        {report.summary && (
+        {report.summary && report.summary.length > 0 && (
           <Box marginBottom={2}>
-            <Text color="gray">{report.summary}</Text>
+            <Text color="gray">  {report.summary}</Text>
           </Box>
         )}
 
@@ -79,20 +91,20 @@ export const Results: React.FC<ResultsProps> = ({ report, onBack, onExport }) =>
         <Box flexDirection="column" marginBottom={2}>
           <Box marginBottom={1}>
             <Text bold color="cyan">
-              Findings by Severity:
+              {'  '}Findings by Severity:
             </Text>
           </Box>
           <Box marginLeft={2}>
-            <Text color="red">  ● Critical: {findingsBySeverity.critical}</Text>
+            <Text color="red">    ● Critical: {findingsBySeverity.critical}</Text>
           </Box>
           <Box marginLeft={2}>
-            <Text color="red">  ● High: {findingsBySeverity.high}</Text>
+            <Text color="red">    ● High: {findingsBySeverity.high}</Text>
           </Box>
           <Box marginLeft={2}>
-            <Text color="yellow">  ● Medium: {findingsBySeverity.medium}</Text>
+            <Text color="yellow">    ● Medium: {findingsBySeverity.medium}</Text>
           </Box>
           <Box marginLeft={2}>
-            <Text color="gray">  ● Low: {findingsBySeverity.low}</Text>
+            <Text color="gray">    ● Low: {findingsBySeverity.low}</Text>
           </Box>
         </Box>
 
@@ -101,12 +113,12 @@ export const Results: React.FC<ResultsProps> = ({ report, onBack, onExport }) =>
           <Box flexDirection="column" marginBottom={2}>
             <Box marginBottom={1}>
               <Text bold color="red">
-                [!] Critical Blockers:
+                {'  '}[!] Critical Blockers:
               </Text>
             </Box>
             {report.criticalBlockers.slice(0, 3).map((blocker, index) => (
               <Box key={index} marginLeft={2}>
-                <Text color="red">  • {blocker}</Text>
+                <Text color="red">    • {blocker}</Text>
               </Box>
             ))}
           </Box>
@@ -117,12 +129,12 @@ export const Results: React.FC<ResultsProps> = ({ report, onBack, onExport }) =>
           <Box flexDirection="column" marginBottom={2}>
             <Box marginBottom={1}>
               <Text bold color="green">
-                [+] Strengths:
+                {'  '}[+] Strengths:
               </Text>
             </Box>
             {report.strengths.slice(0, 3).map((strength, index) => (
               <Box key={index} marginLeft={2}>
-                <Text color="green">  • {strength}</Text>
+                <Text color="green">    • {strength}</Text>
               </Box>
             ))}
           </Box>
