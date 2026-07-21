@@ -17,12 +17,17 @@ import type { VettReport } from "./types";
 import * as dotenv from "dotenv";
 import { generateHTMLReport } from "./html-report-generator";
 
+// Read version from package.json
+const packageJson = JSON.parse(
+  fs.readFileSync(path.join(__dirname, "../package.json"), "utf-8")
+);
+
 const program = new Command();
 
 program
   .name("vettcode")
   .description("AI-powered codebase security and quality scanner")
-  .version("1.0.0");
+  .version(packageJson.version);
 
 program
   .argument("[directory]", "Directory to scan")
