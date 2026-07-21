@@ -54,7 +54,7 @@ export const App: React.FC = () => {
       if (input === 's' || input === 'S') {
         // Start Smart Scan (auto-detect current directory)
         setScanDirectory(process.cwd());
-        setScreen('scan');
+        setScreen('scan'); // Go directly to scan
         return;
       }
 
@@ -99,7 +99,7 @@ export const App: React.FC = () => {
       if (key.return) {
         switch (selectedMenuIndex) {
           case 0: // Start Scan
-            setScreen('settings'); // Go to settings first
+            setScreen('scan'); // Go directly to scan with current settings
             break;
           case 1: // View Settings
             setScreen('settings');
