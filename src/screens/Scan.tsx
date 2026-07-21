@@ -24,7 +24,7 @@ export const Scan: React.FC<ScanProps> = ({
 }) => {
   const [phase, setPhase] = useState('Initializing...');
   const [progress, setProgress] = useState(0);
-  const [detail, setDetail] = useState('');
+  const [detail, setDetail] = useState('Preparing scan...');
   const [isPaused, setIsPaused] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -121,8 +121,6 @@ export const Scan: React.FC<ScanProps> = ({
           <Text color="white">AI Analysis: </Text>
           <Text color={aiEnabled ? 'green' : 'red'}>{aiEnabled ? 'Enabled' : 'Disabled'}</Text>
         </Box>
-
-        <Box marginBottom={2} />
 
         <Box marginBottom={1}>
           <Text color="cyan">
