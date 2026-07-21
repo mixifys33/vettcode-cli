@@ -9,5 +9,11 @@ import React from 'react';
 import { render } from 'ink';
 import { App } from './screens/App';
 
-// Render the app
-render(<App />);
+// Clear screen before rendering
+process.stdout.write('\x1Bc');
+
+// Render the app with fullscreen mode
+render(<App />, {
+  exitOnCtrlC: true,
+  patchConsole: false,
+});

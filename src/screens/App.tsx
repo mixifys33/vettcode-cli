@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useInput, useApp } from 'ink';
+import { useInput, useApp, Box } from 'ink';
 import { Home } from './Home';
 import { Scan } from './Scan';
 import { Results } from './Results';
@@ -15,6 +15,11 @@ export const App: React.FC = () => {
   const [scanReport, setScanReport] = useState<any>(null);
   const [aiEnabled, setAiEnabled] = useState(true);
   const { exit } = useApp();
+
+  // Clear screen on mount
+  useEffect(() => {
+    process.stdout.write('\x1Bc'); // Clear screen escape code
+  }, []);
 
   // Handle keyboard input
   useInput((input, key) => {
