@@ -11,6 +11,9 @@ import { selectFilesForQuickScan } from "./scan-priority";
 import type { CodeFile, VettReport } from "./types";
 import { chatCompletion, parseJsonFromModel, getApiKeys, getModels } from "./openrouter";
 import { getAnalysisPrompt } from "./prompts";
+import { buildEnhancedReport } from "./enhanced-report-builder";
+import { generateInteractiveHTMLReport } from "./interactive-report-generator";
+import type { EnhancedReport } from "./types/enhanced-report";
 
 export type ScanMode = "quick" | "deep";
 
@@ -22,6 +25,7 @@ export interface ScanProgress {
 
 export interface SmartScanResult {
   report: VettReport;
+  enhancedReport?: EnhancedReport;
   stats: {
     filesScanned: number;
     linesScanned: number;
@@ -225,7 +229,32 @@ export async function runSmartScan(
     tokensSaved: `${tokenReduction}% (${Math.round((totalOriginalChars - totalExtractedChars) / 1000)}K chars)`,
   };
 
-  return { report, stats };
+  // Generate enhanced report with AI enrichment
+  let enhancedReport: EnhancedReport | undefined;
+  if (!disableAI) {
+    try {
+      onProgress("Building interactive report", 95, "Enriching with AI insights...");
+      
+      // Create code files map
+      const codeFilesMap = new Map<string, string>();
+      files.forEach(file => {
+        codeFilesMap.set(file.path, file.content);
+      });
+      
+      const scanStartTime = Date.now() - (stats.linesScanned / 100); // Rough estimate
+      enhancedReport = await buildEnhancedReport(
+        report,
+        codeFilesMap,
+        scanStartTime,
+        true,
+        onProgress
+      );
+    } catch (error) {
+      console.warn('Enhanced report generation failed:', error);
+    }
+  }
+
+  return { report, enhancedReport, stats };
 }
 
 async function runAIAnalysisCLI(

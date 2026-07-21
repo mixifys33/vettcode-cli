@@ -160,7 +160,7 @@ ${chalk.bold.cyan('Interactive TUI Mode:')}
       // Run smart scan
       const scanSpinner = ora("Running smart scan...").start();
       
-      const { report, stats } = await runSmartScan(
+      const { report, enhancedReport, stats } = await runSmartScan(
         projectName,
         files,
         0,
@@ -181,6 +181,7 @@ ${chalk.bold.cyan('Interactive TUI Mode:')}
       const reportPath = generateHTMLReport(report, {
         outputDir: resolvedPath,
         openInBrowser: true,
+        enhancedReport,
       });
       
       console.log(chalk.green(`\n  [✓] Report saved successfully!`));
