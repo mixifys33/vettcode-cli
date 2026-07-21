@@ -66,7 +66,7 @@ export const Scan: React.FC<ScanProps> = ({
       <Box flexDirection="column" marginTop={2} marginBottom={2}>
         <Box marginBottom={1}>
           <Text bold color="cyan">
-            🔍 SCANNING IN PROGRESS
+            [?] SCANNING IN PROGRESS
           </Text>
         </Box>
 

@@ -6,7 +6,7 @@ export const Footer: React.FC = () => {
     <Box flexDirection="column" marginTop={1}>
       <Box justifyContent="center">
         <Text color="gray" dimColor>
-          ❤️  Powered by AD-Technologies and AI Enterprises
+          {'<'}3  Powered by AD-Technologies and AI Enterprises
         </Text>
       </Box>
       <Box justifyContent="center">
@@ -16,7 +16,7 @@ export const Footer: React.FC = () => {
       </Box>
       <Box justifyContent="center" marginTop={1}>
         <Text color="gray" dimColor>
-          Press [H] for help • [Q] to quit • [↑↓] to navigate • [Enter] to select
+          Press [H] for help • [Q] to quit • [^v] to navigate • [Enter] to select
         </Text>
       </Box>
     </Box>

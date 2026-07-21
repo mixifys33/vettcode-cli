@@ -15,7 +15,7 @@ export const Help: React.FC<HelpProps> = ({ onBack }) => {
       <Box flexDirection="column" marginTop={2} marginBottom={2}>
         <Box marginBottom={1}>
           <Text bold color="cyan">
-            ⌨️  KEYBOARD SHORTCUTS
+            [?] KEYBOARD SHORTCUTS
           </Text>
         </Box>
 

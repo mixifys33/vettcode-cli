@@ -6,7 +6,7 @@ export const QuickStart: React.FC = () => {
     <Box flexDirection="column" marginBottom={1}>
       <Box marginBottom={1}>
         <Text bold color="cyan">
-          ⚡ QUICK START
+          {'['}&gt;{']'} QUICK START
         </Text>
       </Box>
 

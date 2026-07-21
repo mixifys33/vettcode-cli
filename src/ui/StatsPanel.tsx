@@ -28,25 +28,25 @@ export const StatsPanel: React.FC = () => {
   return (
     <Box flexDirection="row" marginBottom={1} paddingX={2}>
       <StatItem
-        icon="🛡️"
+        icon="[#]"
         title="350+"
         subtitle="Security Patterns"
         color="cyan"
       />
       <StatItem
-        icon="🧠"
+        icon="[@]"
         title="AI-Powered"
         subtitle="Deep Analysis"
         color="magenta"
       />
       <StatItem
-        icon="✓"
+        icon="[✓]"
         title="<3%"
         subtitle="False Positive Rate"
         color="green"
       />
       <StatItem
-        icon="📊"
+        icon="[~]"
         title="Multi-Layer"
         subtitle="Verification System"
         color="yellow"

@@ -7,12 +7,12 @@ export const Header: React.FC = () => {
     <Box flexDirection="column" marginBottom={1}>
       <Box>
         <Text bold color="cyan">
-          {'  '}🛡️  VettCode{' '}
+          {'  '}[V]  VettCode{' '}
         </Text>
         <Text color="white" bold>
           CLI
         </Text>
-        <Text color="gray"> v1.1.0</Text>
+        <Text color="gray"> v1.1.1</Text>
       </Box>
       <Box marginLeft={2}>
         <Text color="white">Enterprise-Grade Code Security Scanner</Text>

@@ -42,7 +42,7 @@ export const Results: React.FC<ResultsProps> = ({ report, onBack, onExport }) =>
       <Box flexDirection="column" marginTop={2} marginBottom={2}>
         <Box marginBottom={1}>
           <Text bold color="cyan">
-            📊 SCAN RESULTS
+            [~] SCAN RESULTS
           </Text>
         </Box>
 
@@ -88,7 +88,7 @@ export const Results: React.FC<ResultsProps> = ({ report, onBack, onExport }) =>
           <Box flexDirection="column" marginBottom={2}>
             <Box marginBottom={1}>
               <Text bold color="red">
-                ⚠️  Critical Blockers:
+                [!] Critical Blockers:
               </Text>
             </Box>
             {report.criticalBlockers.slice(0, 3).map((blocker, index) => (
@@ -104,7 +104,7 @@ export const Results: React.FC<ResultsProps> = ({ report, onBack, onExport }) =>
           <Box flexDirection="column" marginBottom={2}>
             <Box marginBottom={1}>
               <Text bold color="green">
-                ✓ Strengths:
+                [+] Strengths:
               </Text>
             </Box>
             {report.strengths.slice(0, 3).map((strength, index) => (

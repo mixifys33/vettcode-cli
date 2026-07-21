@@ -11,7 +11,7 @@ export const Menu: React.FC<MenuProps> = ({ selectedIndex, items }) => {
     <Box flexDirection="column">
       <Box marginBottom={1}>
         <Text bold color="cyan">
-          ⚡ MAIN MENU
+          {'['}&gt;{']'} MAIN MENU
         </Text>
       </Box>
 
@@ -20,7 +20,7 @@ export const Menu: React.FC<MenuProps> = ({ selectedIndex, items }) => {
         return (
           <Box key={index} marginBottom={0}>
             <Text color={isSelected ? 'cyan' : 'white'}>
-              {isSelected ? '→ ' : '  '}
+              {isSelected ? '> ' : '  '}
               {index + 1}. {item.label}
             </Text>
             {item.shortcut && (
