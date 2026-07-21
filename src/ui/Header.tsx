@@ -12,7 +12,7 @@ export const Header: React.FC = () => {
         <Text color="white" bold>
           CLI
         </Text>
-        <Text color="gray"> v1.0.8</Text>
+        <Text color="gray"> v1.1.0</Text>
       </Box>
       <Box marginLeft={2}>
         <Text color="white">Enterprise-Grade Code Security Scanner</Text>

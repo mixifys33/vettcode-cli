@@ -14,7 +14,7 @@ interface HomeProps {
 
 const menuItems = [
   { label: 'Start Scan', shortcut: 'S' },
-  { label: 'View Settings', shortcut: '' },
+  { label: 'View Settings' },
   { label: 'Configure AI', shortcut: 'A' },
   { label: 'View Reports', shortcut: 'R' },
   { label: 'Documentation', shortcut: 'H' },
