@@ -1,27 +1,40 @@
-import React from 'react';
-import { Box, Text } from 'ink';
+import React, { useState } from 'react';
+import { Box, Text, useInput } from 'ink';
 import { Header } from '../ui/Header';
 import { Footer } from '../ui/Footer';
+import { generateHTMLReport } from '../html-report-generator';
+import type { VettReport } from '../types';
 
 interface ResultsProps {
-  report: {
-    score: number;
-    grade: string;
-    summary: string;
-    findings: Array<{
-      severity: string;
-      title: string;
-      file: string;
-      line: number;
-    }>;
-    criticalBlockers: string[];
-    strengths: string[];
-  };
+  report: VettReport;
   onBack: () => void;
   onExport: () => void;
 }
 
 export const Results: React.FC<ResultsProps> = ({ report, onBack, onExport }) => {
+  const [message, setMessage] = useState<string>('');
+
+  useInput((input, key) => {
+    if (input === 'b' || input === 'B' || key.escape) {
+      onBack();
+    } else if (input === 'e' || input === 'E') {
+      onExport();
+    } else if (input === 'd' || input === 'D') {
+      // Generate detailed HTML report
+      try {
+        const reportPath = generateHTMLReport(report, {
+          outputDir: process.cwd(),
+          openInBrowser: true,
+        });
+        setMessage(`Report saved to: ${reportPath}`);
+        setTimeout(() => setMessage(''), 5000);
+      } catch (error) {
+        setMessage(`Error: ${error instanceof Error ? error.message : 'Failed to generate report'}`);
+        setTimeout(() => setMessage(''), 5000);
+      }
+    }
+  });
+
   const getScoreColor = (score: number) => {
     if (score >= 80) return 'green';
     if (score >= 60) return 'yellow';
@@ -118,9 +131,16 @@ export const Results: React.FC<ResultsProps> = ({ report, onBack, onExport }) =>
         {/* Actions */}
         <Box marginTop={2}>
           <Text color="gray">
-            Press [E] to export • [R] to view all reports • [B] to go back • [Q] to exit
+            Press [D] for detailed HTML report • [E] to export JSON • [B] to go back • [Q] to exit
           </Text>
         </Box>
+
+        {/* Status Message */}
+        {message && (
+          <Box marginTop={1}>
+            <Text color="cyan">{message}</Text>
+          </Box>
+        )}
       </Box>
 
       <Footer />

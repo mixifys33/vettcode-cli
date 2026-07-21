@@ -5,6 +5,7 @@ import { Header } from '../ui/Header';
 import { Footer } from '../ui/Footer';
 import { collectFiles } from '../file-collector';
 import { runSmartScan } from '../cli-scan-orchestrator';
+import { generateHTMLReport } from '../html-report-generator';
 import type { ScanMode } from '../cli-scan-orchestrator';
 
 interface ScanProps {
@@ -73,10 +74,22 @@ export const Scan: React.FC<ScanProps> = ({
           setProgress(100);
           setDetail('Scan complete');
           
+          // Generate HTML report
+          try {
+            setPhase('Generating report');
+            const reportPath = generateHTMLReport(report, {
+              outputDir: directory,
+              openInBrowser: true,
+            });
+            setDetail(`Report saved to ${reportPath}`);
+          } catch (err) {
+            console.error('Failed to generate HTML report:', err);
+          }
+          
           // Wait a moment before showing results
           setTimeout(() => {
             onComplete(report);
-          }, 1000);
+          }, 2000);
         }
       } catch (err) {
         if (!cancelled) {
