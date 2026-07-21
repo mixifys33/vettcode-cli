@@ -36,6 +36,68 @@ program
   .option("--json", "Output JSON format")
   .option("--mode <mode>", "Scan mode: quick or deep (default: quick)")
   .option("--no-ai", "Disable AI analysis (static only)")
+  .addHelpText('after', `
+
+Examples:
+  ${chalk.bold.cyan('Basic Usage:')}
+  $ vettcode .                              ${chalk.gray('# Quick scan current directory (default)')}
+  $ vettcode /path/to/project               ${chalk.gray('# Scan specific directory')}
+
+  ${chalk.bold.cyan('Scan Modes:')}
+  $ vettcode . --mode deep                  ${chalk.gray('# Full analysis with AI (2-3 min, most thorough)')}
+  $ vettcode . --no-ai                      ${chalk.gray('# Fast static-only scan (30s, no AI)')}
+  $ vettcode .                              ${chalk.gray('# Quick scan (default, balanced speed/depth)')}
+
+  ${chalk.bold.cyan('Output Options:')}
+  $ vettcode . -o results.json              ${chalk.gray('# Save results to JSON file')}
+  $ vettcode . --json                       ${chalk.gray('# Print JSON to stdout')}
+  $ vettcode . -o report.json --mode deep   ${chalk.gray('# Deep scan + save results')}
+
+  ${chalk.bold.cyan('Filtering:')}
+  $ vettcode . -i "node_modules,dist"       ${chalk.gray('# Ignore specific directories')}
+  $ vettcode . -i "*.test.js,*.spec.ts"     ${chalk.gray('# Ignore test files')}
+
+  ${chalk.bold.cyan('Combined Examples:')}
+  $ vettcode . --mode deep -o detailed.json ${chalk.gray('# Comprehensive scan + save')}
+  $ vettcode . --no-ai -o fast-report.json  ${chalk.gray('# Quick static scan + save')}
+
+  ${chalk.bold.cyan('Testing Scenarios:')}
+  ${chalk.gray('• Before deployment:')}        vettcode . --mode deep
+  ${chalk.gray('• During development:')}       vettcode . --no-ai
+  ${chalk.gray('• CI/CD pipeline:')}           vettcode . -o results.json
+  ${chalk.gray('• Quick validation:')}         vettcode .
+
+  ${chalk.bold.cyan('When to Use Each Mode:')}
+  ${chalk.bold('Quick Mode')} (default)
+    ✓ Balanced speed and coverage
+    ✓ Scans priority files (~30 seconds)
+    ✓ Best for: Regular development checks
+    ${chalk.cyan('Example:')} vettcode .
+
+  ${chalk.bold('Deep Mode')} (--mode deep)
+    ✓ Comprehensive analysis of all files
+    ✓ Maximum coverage (~2-3 minutes)
+    ✓ Best for: Pre-production validation
+    ${chalk.cyan('Example:')} vettcode . --mode deep
+
+  ${chalk.bold('Static-Only')} (--no-ai)
+    ✓ Fastest scan (~30 seconds)
+    ✓ No AI required (offline capable)
+    ✓ Best for: CI/CD, quick checks, no API keys
+    ${chalk.cyan('Example:')} vettcode . --no-ai
+
+  ${chalk.bold.cyan('Meta Scan (Scan VettCode Itself):')}
+  $ cd C:\\Users\\USER\\Desktop\\ALLOUTGADGATS\\Vettcode-engine-cli
+  $ vettcode .                              ${chalk.gray('# Scan the scanner!')}
+
+  ${chalk.bold.cyan('Info:')}
+  $ vettcode --help                         ${chalk.gray('# Show this help')}
+  $ vettcode --version                      ${chalk.gray('# Show version number')}
+
+${chalk.bold.cyan('Interactive TUI Mode:')}
+  Run without arguments to launch the interactive terminal UI:
+  $ vettcode                                ${chalk.gray('# Launch full-screen TUI with menus')}
+`)
   .action(async (directory: string | undefined, options) => {
     try {
       // Load environment variables
