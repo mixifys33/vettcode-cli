@@ -59,7 +59,9 @@ export const Scan: React.FC<ScanProps> = ({
             if (!cancelled && !isPaused) {
               setPhase(phaseMsg);
               setProgress(pct);
-              setDetail(detailMsg || '');
+              if (detailMsg) {
+                setDetail(detailMsg);
+              }
             }
           },
           mode,
@@ -134,7 +136,7 @@ export const Scan: React.FC<ScanProps> = ({
           <Text color={progress === 100 ? 'green' : 'cyan'}>[{progressBar}]</Text>
         </Box>
 
-        {detail && (
+        {detail && detail.length > 0 && (
           <Box marginBottom={1}>
             <Text color="gray">  {detail}</Text>
           </Box>

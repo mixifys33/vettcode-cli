@@ -1,204 +1,292 @@
-# VettCode CLI
+# VettCode
 
-**AI-Powered Codebase Security & Quality Scanner (Terminal-First)**
-
-Scan, audit, and secure your codebase directly from your terminal — no UI, no friction.
+**Stop Shipping Broken Code. Scan What Actually Fails in Production.**
 
 ---
 
-## 🚀 Overview
+## ⚡ What is VettCode?
 
-**VettCode CLI** is a developer-first security and quality scanner that runs entirely in your terminal. It combines static analysis, AST-based extraction, and optional AI-powered reasoning to deliver **high-precision findings with minimal false positives (<3%)**.
+**VettCode is a production-grade code scanner built to catch what linters, tests, and reviews miss.**
 
-Built for speed, privacy, and real-world codebases.
+It detects:
 
----
+* 🔐 **Real security vulnerabilities**
+* ⚙️ **Production-breaking logic flaws**
+* 🧠 **Hidden risks inside “working” code**
 
-## 🎯 Core Capabilities
-
-### Hybrid Analysis Pipeline
-
-VettCode uses a multi-layered detection system:
-
-* **Static Analysis** → 350+ vulnerability patterns
-* **AST Extraction** → Context-aware code slicing (reduces token usage by 60–80%)
-* **AI Analysis (Optional)** → Deep semantic reasoning via state-of-the-art AI models
-* **Verification Layer** → Cross-validation to eliminate false positives
-* **Report Engine** → Scoring + actionable insights
+> If your code passes tests but fails in production —
+> **VettCode is what you were missing.**
 
 ---
 
-## 🔐 Security Coverage
+## 🚀 Start Here (No Setup Required)
 
-Detects critical vulnerabilities including:
+👉 https://vetted-xi.vercel.app/
 
-* **SQL Injection** (template literals, unsafe queries)
-* **XSS** (innerHTML, dangerouslySetInnerHTML, DOM sinks)
-* **Command Injection** (exec, eval, Function constructor)
-* **Path Traversal**
-* **Hardcoded Secrets** (API keys, tokens, passwords)
-* **Auth Bypass Risks** (weak JWTs, missing middleware)
-* **Crypto Weaknesses** (ECB mode, static IVs)
+Run a full scan in minutes — directly in your browser.
 
 ---
 
-## ⚙️ Production & Reliability Issues
+## 🔎 Web Scanner (Instant Analysis)
 
-* Unhandled errors / empty catch blocks
-* Missing input validation
-* Race conditions (concurrent writes)
-* Null/undefined access risks
+The fastest way to understand your codebase risk.
 
----
+### ⚡ What You Get
 
-## 🧹 Code Quality Analysis
-
-* Magic numbers
-* Deep nesting / complexity
-* Dead/commented code
-* React anti-patterns (keys, state mutation, hooks deps)
+* **0–100 strict production score**
+* **Verified findings (<3% false positives)**
+* **Static + AI hybrid analysis**
+* **Actionable fixes — not just warnings**
 
 ---
 
-## 🗄️ Database Issues
+### 🔐 Built for Privacy
 
-* N+1 queries
-* Missing connection limits
-* No query timeouts
+* No code is stored
+* No uploads persist
+* Repo scans use temporary snapshots
+* Everything resets after your session
 
----
-
-## 🧠 Advanced Analysis
-
-* **Data Flow Tracking** → traces user input to dangerous sinks
-* **Control Flow Analysis** → identifies validation gaps
-* **Reference Graph** → cross-file context awareness
+> Your code never leaves your control.
 
 ---
 
-## � Installation
+### ⚡ Scan Modes
 
-### Local Setup
+**Quick Scan (Recommended)**
 
-```bash
-git clone https://github.com/mixifys33/vettcode-cli.git
-cd vettcode-engine-cli
-npm install
-npm run build
-node dist/cli.js <directory>
-```
+* Targets high-risk areas:
 
-### Global Install (Recommended)
+  * Auth
+  * Routes
+  * Config
+* ⏱️ ~1–4 minutes
+* Perfect for first-pass validation
+
+**Deep Scan (Release Mode)**
+
+* Full-system analysis
+* Parallel AI processing
+* Detects deeper architectural risks
+* Built for production readiness checks
+
+---
+
+### 📦 Scan Your Code
+
+* Paste a GitHub / GitLab / Bitbucket URL
+* Upload a folder or ZIP
+* Dependencies & build files auto-excluded
+
+---
+
+## 💻 VettCode CLI (For Real Workflows)
+
+For developers who want **speed, automation, and full control**.
+
+Run scans directly inside your terminal.
+
+---
+
+### 📦 Install
 
 ```bash
 npm install -g vettcode-cli
-vettcode <directory>
 ```
 
 ---
 
-## 📖 Usage
-
-### Basic Scan
+### ▶️ Run a Scan
 
 ```bash
-vettcode ./my-project
+vettcode .
 ```
 
-### Advanced Options
+---
+
+### ⚡ Advanced Usage
+
+vettcode  => this is to open up the main menu
 
 ```bash
-vettcode ./my-project -o report.json
-vettcode ./my-project -i "node_modules,dist"
-vettcode ./my-project --json
-vettcode ./my-project --mode deep
-vettcode ./my-project --no-ai
+vettcode . --mode deep
+vettcode . --json
+vettcode . -o report.json
+vettcode . --no-ai
 ```
 
 ---
 
-## ⚙️ CLI Options
+## 🧠 How VettCode Works
 
-| Option          | Description            |
-| --------------- | ---------------------- |
-| `<directory>`   | Target directory       |
-| `-o, --output`  | Save report to JSON    |
-| `-i, --ignore`  | Ignore patterns        |
-| `--json`        | Output raw JSON        |
-| `--mode`        | quick (default) / deep |
-| `--no-ai`       | Disable AI analysis    |
-| `-h, --help`    | Help menu              |
-| `-V, --version` | Version                |
+Unlike basic scanners, VettCode uses a **multi-layered analysis engine**:
+
+```
+Static Analysis → 350+ vulnerability patterns  
+AST Extraction → Context-aware slicing  
+AI Analysis → Deep semantic reasoning  
+Verification Layer → Eliminates false positives  
+Report Engine → Score + actionable fixes
+```
 
 ---
 
-## 🔑 AI Configuration (Optional)
+## 🔐 What It Detects
 
-VettCode supports AI-enhanced analysis for deeper semantic reasoning.
+### Security Vulnerabilities
 
-### Setup
+* SQL Injection
+* XSS
+* Command Injection
+* Path Traversal
+* Hardcoded secrets
+* Auth bypass risks
+* Weak cryptography
 
-```bash
-cp .env.example .env
-```
+### Production Failures
 
-Add your keys:
+* Unhandled errors
+* Missing validation
+* Race conditions
+* Null/undefined crashes
 
-```env
-OPENROUTER_API_KEY_1=your-key
-OPENROUTER_API_KEYS=key1,key2,key3
-OPENROUTER_MODELS=openrouter/free,deepseek/deepseek-chat-v3-0324:free
-```
+### Code Quality Risks
 
-### Fallback Mode
+* Deep complexity
+* Dead code
+* React anti-patterns
 
-If AI is unavailable, VettCode automatically falls back to **enhanced static analysis (~85% capability)**.
+### Database Issues
+
+* N+1 queries
+* Missing limits
+* No timeouts
 
 ---
 
-## 📊 Output Example
+## 📊 Example Output
 
 ```
 Score: 72/100 (C-)
-Analyzed 45 files (3,421 lines)
 
- Critical:
-• SQL Injection in src/api/users.ts:42
+Critical:
+- SQL Injection in src/api/users.ts:42
 
-🔍 Summary:
+Summary:
 1 Critical | 3 High | 5 Medium | 3 Low
 
-📋 Verdict:
-MODERATE risk – requires fixes before production
+Verdict:
+MODERATE risk — fix before production
 ```
 
 ---
 
-## 🧪 Supported Languages
+## 🧠 AI (Optional, Powerful)
 
-JavaScript, TypeScript, Python, Java, PHP, Go, Ruby, C#, C/C++, Swift, Kotlin, Rust, Vue, Svelte
+* Deep reasoning beyond static rules
+* Only minimal code snippets are analyzed
+* Fully optional — works without AI (~85% capability)
 
 ---
 
-## � Security & Privacy
+## 🛒 VettCode Marketplace
 
-* Local-first analysis
-* No data persistence
-* AI is optional
-* Only extracted snippets sent to AI
-* Built-in rate limiting & key rotation
+👉 https://vettcode.vercel.app/
+
+**Ship faster using verified production-ready codebases.**
+
+---
+
+### 🔥 What It Is
+
+A marketplace where developers:
+
+* Buy real, production-grade systems
+* Sell their code and earn
+* Skip months of rebuilding
+
+---
+
+### 💡 Why It Exists
+
+Most developers:
+
+* Build great systems
+* Never monetize them
+
+VettCode fixes that.
+
+---
+
+### 🧱 What You Get
+
+* Real startup-grade architectures
+* Clean, scalable code
+* Full documentation
+* Instant downloads
+
+> Not tutorials. Not boilerplates.
+> **Real systems you can deploy.**
+
+---
+
+## 🏆 Why Developers Choose VettCode
+
+### ✅ It Finds What Others Miss
+
+Not just syntax issues — **real production risks**
+
+### ⚡ It’s Fast
+
+Scan entire projects in minutes
+
+### 🔐 It’s Private
+
+No storage. No tracking. No risk
+
+### 🧠 It’s Accurate
+
+<3% false positives with verification layer
+
+### 🚀 It Saves Time
+
+Fix issues before they cost you users
+
+---
+
+## 🎯 Mission
+
+Make production-quality software the default — not the exception.
+
+---
+
+## 🌍 Vision
+
+Build the most trusted platform for:
+
+* Code verification
+* Developer tooling
+* Production-ready applications
 
 ---
 
 ## ⚠️ Disclaimer
 
-VettCode is an assistive tool — not a replacement for:
+VettCode enhances your workflow — it does not replace:
 
 * Security audits
 * Penetration testing
 * Manual reviews
 
-Always validate findings before deployment.
+---
+
+## 🤝 Contributing
+
+We welcome contributions:
+
+* Detection improvements
+* New language support
+* Performance optimizations
 
 ---
 
@@ -208,19 +296,11 @@ MIT
 
 ---
 
-## 🤝 Contributing
+## 💡 Final Take
 
-Open to contributions:
+> VettCode is not another dev tool.
 
-* New detection patterns
-* Language support improvements
-* AST enhancements
-* Output/UX improvements
+It’s the difference between:
 
----
-
-## 💡 Positioning
-
-**VettCode CLI = "Linting + Security + AI Reasoning in One Command"**
-
-Built for developers who want **fast, accurate, and local-first code audits** without enterprise complexity.
+* Code that works
+* And code that survives production
