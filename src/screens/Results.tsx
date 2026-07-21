@@ -12,7 +12,7 @@ interface ResultsProps {
 }
 
 export const Results: React.FC<ResultsProps> = ({ report, onBack, onExport }) => {
-  const [message, setMessage] = useState<string>('');
+  const [message, setMessage] = useState<string | null>(null);
 
   useInput((input, key) => {
     if (input === 'b' || input === 'B' || key.escape) {
@@ -27,10 +27,10 @@ export const Results: React.FC<ResultsProps> = ({ report, onBack, onExport }) =>
           openInBrowser: true,
         });
         setMessage(`Report saved to: ${reportPath}`);
-        setTimeout(() => setMessage(''), 5000);
+        setTimeout(() => setMessage(null), 5000);
       } catch (error) {
         setMessage(`Error: ${error instanceof Error ? error.message : 'Failed to generate report'}`);
-        setTimeout(() => setMessage(''), 5000);
+        setTimeout(() => setMessage(null), 5000);
       }
     }
   });
@@ -136,7 +136,7 @@ export const Results: React.FC<ResultsProps> = ({ report, onBack, onExport }) =>
         </Box>
 
         {/* Status Message */}
-        {message && (
+        {message !== null && message.length > 0 && (
           <Box marginTop={1}>
             <Text color="cyan">{message}</Text>
           </Box>
