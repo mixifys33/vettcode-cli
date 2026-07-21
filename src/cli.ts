@@ -35,36 +35,30 @@ program
       // Load environment variables
       dotenv.config();
 
-      // If no directory provided, show interactive TUI
+      // If no directory provided, launch interactive Ink TUI
       if (!directory) {
-        const { execSync } = require('child_process');
+        const { spawn } = require('child_process');
         const path = require('path');
-        const fs = require('fs');
         
-        // Try to find the UI files - check multiple possible locations
-        const possiblePaths = [
-          path.join(__dirname, '..', 'src', 'ui', 'index.tsx'), // Development: dist/cli.js -> src/ui
-          path.join(__dirname, '..', '..', 'src', 'ui', 'index.tsx'), // Installed: node_modules/vettcode-cli/dist/cli.js -> src/ui
-          path.join(__dirname, '..', '..', '..', 'vettcode-cli', 'src', 'ui', 'index.tsx'), // Global install
-          path.join(process.cwd(), 'node_modules', 'vettcode-cli', 'src', 'ui', 'index.tsx'),
-          path.join(process.cwd(), 'src', 'ui', 'index.tsx'), // Current directory
-        ];
-        
-        let uiPath = possiblePaths.find(p => fs.existsSync(p));
-        
-        if (!uiPath) {
-          console.error('Failed to find UI files. Falling back to simple mode.');
-          showInteractiveHome();
+        // Try to launch Ink TUI
+        const tuiPath = path.join(__dirname, 'ink-ui.js');
+        if (fs.existsSync(tuiPath)) {
+          const child = spawn('node', [tuiPath], { 
+            stdio: 'inherit',
+            cwd: process.cwd()
+          });
+          
+          child.on('exit', (code: number) => {
+            process.exit(code || 0);
+          });
+          return;
+        } else {
+          // Fallback to showing help
+          console.log(chalk.bold.cyan("\n[+] VettCode CLI - Security Scanner\n"));
+          console.log(chalk.yellow("Interactive TUI not found. Use: vettcode <directory> to scan.\n"));
+          program.help();
           return;
         }
-        
-        try {
-          execSync(`npx tsx "${uiPath}"`, { stdio: 'inherit' });
-        } catch (error) {
-          console.error('Failed to launch TUI. Falling back to simple mode.');
-          showInteractiveHome();
-        }
-        return;
       }
 
       console.log(chalk.bold.cyan("\n[+] VettCode CLI - Security Scanner\n"));

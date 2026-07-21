@@ -1,33 +1,73 @@
 import React from 'react';
 import { Box, Text } from 'ink';
 
-const capabilities = [
-  { title: 'Vulnerability Detection', desc: 'SQLi, XSS, Command Injection, Secrets', color: 'red' },
-  { title: 'Code Quality Analysis', desc: 'Magic numbers, deep nesting, dead code', color: 'yellow' },
-  { title: 'Database Security', desc: 'N+1 queries, connection limits, timeouts', color: 'blue' },
-  { title: 'Advanced Analysis', desc: 'Data flow, control flow, reference graph', color: 'green' },
-  { title: 'Smart Reporting', desc: 'Scoring, actionable insights, executive verdict', color: 'cyan' },
-];
+interface CapabilityItemProps {
+  icon: string;
+  title: string;
+  description: string;
+  color: string;
+}
+
+const CapabilityItem: React.FC<CapabilityItemProps> = ({
+  icon,
+  title,
+  description,
+  color,
+}) => {
+  return (
+    <Box flexDirection="column" marginBottom={1}>
+      <Box>
+        <Text color={color}>{icon} </Text>
+        <Text bold color={color}>
+          {title}
+        </Text>
+      </Box>
+      <Box marginLeft={3}>
+        <Text color="gray">{description}</Text>
+      </Box>
+    </Box>
+  );
+};
 
 export const Capabilities: React.FC = () => {
   return (
-    <Box flexDirection="column">
-      <Text bold color="white" marginBottom={2}>
-        Capabilities
-      </Text>
-      {capabilities.map((cap, index) => (
-        <Box key={index} marginBottom={1}>
-          <Text color={cap.color as any}>●</Text>
-          <Text color="white" bold>
-            {' '}
-            {cap.title}
-          </Text>
-          <Text color="gray" dimColor>
-            {' '}
-            — {cap.desc}
-          </Text>
-        </Box>
-      ))}
+    <Box flexDirection="column" width="45%" paddingRight={2}>
+      <Box marginBottom={1}>
+        <Text bold color="cyan">
+          🚀 CAPABILITIES
+        </Text>
+      </Box>
+
+      <CapabilityItem
+        icon="🔒"
+        title="Vulnerability Detection"
+        description="SQLi, XSS, Command Injection, Secrets, Auth Bypass"
+        color="cyan"
+      />
+      <CapabilityItem
+        icon="⚙️"
+        title="Code Quality Analysis"
+        description="Complexity, Best Practices, Anti-patterns"
+        color="yellow"
+      />
+      <CapabilityItem
+        icon="💾"
+        title="Database Security"
+        description="N+1 Queries, Connection Issues, Timeouts"
+        color="yellow"
+      />
+      <CapabilityItem
+        icon="🔍"
+        title="Advanced Analysis"
+        description="Data Flow Tracking, Control Flow, Reference Graph"
+        color="green"
+      />
+      <CapabilityItem
+        icon="📋"
+        title="Smart Reporting"
+        description="Scoring, Insights, Recommendations, Export"
+        color="blue"
+      />
     </Box>
   );
 };
