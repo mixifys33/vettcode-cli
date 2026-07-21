@@ -3,10 +3,14 @@ import { Box, Text } from 'ink';
 import Spinner from 'ink-spinner';
 import { Header } from '../ui/Header';
 import { Footer } from '../ui/Footer';
+import { collectFiles } from '../file-collector';
+import { runSmartScan } from '../cli-scan-orchestrator';
+import type { ScanMode } from '../cli-scan-orchestrator';
 
 interface ScanProps {
   directory: string;
-  mode: 'quick' | 'deep';
+  mode: ScanMode;
+  aiEnabled?: boolean;
   onComplete: (report: any) => void;
   onCancel: () => void;
 }
@@ -14,6 +18,7 @@ interface ScanProps {
 export const Scan: React.FC<ScanProps> = ({
   directory,
   mode,
+  aiEnabled = true,
   onComplete,
   onCancel,
 }) => {
@@ -21,41 +26,71 @@ export const Scan: React.FC<ScanProps> = ({
   const [progress, setProgress] = useState(0);
   const [detail, setDetail] = useState('');
   const [isPaused, setIsPaused] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    // Simulated scan phases
-    const phases = [
-      { phase: 'Static analysis', pct: 25, detail: 'Pattern checks across files…' },
-      { phase: 'Code extraction', pct: 45, detail: 'Targeting high-risk regions…' },
-      { phase: 'AI review', pct: 75, detail: 'Analyzing extracted code…' },
-      { phase: 'Verification', pct: 85, detail: 'Cross-checking findings…' },
-      { phase: 'Complete', pct: 100, detail: 'Scan complete' },
-    ];
+    let cancelled = false;
 
-    let currentPhase = 0;
-    const interval = setInterval(() => {
-      if (!isPaused && currentPhase < phases.length) {
-        const current = phases[currentPhase];
-        setPhase(current.phase);
-        setProgress(current.pct);
-        setDetail(current.detail);
-        currentPhase++;
+    const runActualScan = async () => {
+      try {
+        // Collect files
+        setPhase('Collecting files');
+        setProgress(5);
+        setDetail(`Scanning directory: ${directory}`);
+        
+        const files = collectFiles(directory, undefined);
+        
+        if (cancelled) return;
+        
+        setDetail(`Found ${files.length} files to analyze`);
+        setProgress(10);
 
-        if (currentPhase === phases.length) {
-          clearInterval(interval);
+        if (files.length === 0) {
+          setError('No code files found in the directory');
+          return;
+        }
+
+        // Run smart scan
+        const { report, stats } = await runSmartScan(
+          directory,
+          files,
+          0,
+          (phaseMsg: string, pct: number, detailMsg?: string) => {
+            if (!cancelled && !isPaused) {
+              setPhase(phaseMsg);
+              setProgress(pct);
+              setDetail(detailMsg || '');
+            }
+          },
+          mode,
+          !aiEnabled
+        );
+
+        if (!cancelled) {
+          setPhase('Complete');
+          setProgress(100);
+          setDetail('Scan complete');
+          
+          // Wait a moment before showing results
           setTimeout(() => {
-            onComplete({
-              score: 75,
-              grade: 'B',
-              findings: [],
-            });
+            onComplete(report);
           }, 1000);
         }
+      } catch (err) {
+        if (!cancelled) {
+          setError(err instanceof Error ? err.message : 'Scan failed');
+          setPhase('Error');
+          setProgress(0);
+        }
       }
-    }, 2000);
+    };
 
-    return () => clearInterval(interval);
-  }, [isPaused, onComplete]);
+    runActualScan();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [directory, mode, aiEnabled, isPaused, onComplete]);
 
   const progressBar = '█'.repeat(Math.floor(progress / 5)) + '░'.repeat(20 - Math.floor(progress / 5));
 
@@ -78,6 +113,11 @@ export const Scan: React.FC<ScanProps> = ({
         <Box marginBottom={1}>
           <Text color="white">Mode: </Text>
           <Text color="yellow">{mode === 'quick' ? 'Quick Scan' : 'Deep Scan'}</Text>
+        </Box>
+
+        <Box marginBottom={1}>
+          <Text color="white">AI Analysis: </Text>
+          <Text color={aiEnabled ? 'green' : 'red'}>{aiEnabled ? 'Enabled' : 'Disabled'}</Text>
         </Box>
 
         <Box marginBottom={2} />
@@ -103,6 +143,12 @@ export const Scan: React.FC<ScanProps> = ({
         {isPaused && (
           <Box marginTop={1}>
             <Text color="yellow">⏸  PAUSED - Press [P] to resume</Text>
+          </Box>
+        )}
+
+        {error && (
+          <Box marginTop={1}>
+            <Text color="red">✗ ERROR: {error}</Text>
           </Box>
         )}
 

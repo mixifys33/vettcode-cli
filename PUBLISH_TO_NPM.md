@@ -399,3 +399,64 @@ vettcode
 ```
 
 And enjoy the beautiful interactive dashboard! 🛡️
+
+
+
+
+
+
+
+
+
+
+
+
+# 1. Quick check (default)
+vettcode .
+
+# 2. Full analysis with AI
+vettcode . --mode deep
+
+# 3. Fast static-only scan
+vettcode . --no-ai
+
+# 4. Scan and save results
+vettcode . -o results.json
+
+# 5. Scan with custom ignore patterns
+vettcode . -i "node_modules,dist,build"
+
+# 6. View help
+vettcode --help
+
+# 7. Check version
+vettcode --version
+
+
+Test 3: Quick scan with JSON output
+
+vettcode . --no-ai -o test-report.json
+Test 4: Deep scan
+
+
+
+vettcode . --mode deep
+
+Scan yourself (meta-scan!)
+
+
+
+cd C:\Users\USER\Desktop\ALLOUTGADGATS\Vettcode-engine-cli
+vettcode .
+
+# Deep scan mode (more thorough)
+vettcode . --mode deep
+
+# Without AI (faster, static analysis only)
+vettcode . --no-ai
+
+# Save report to file
+vettcode . -o scan-report.json
+
+# Combine options
+vettcode . --mode deep -o detailed-report.json

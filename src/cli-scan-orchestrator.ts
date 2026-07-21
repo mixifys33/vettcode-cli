@@ -40,7 +40,8 @@ export async function runSmartScan(
   files: CodeFile[],
   ignoredCount: number,
   onProgress: (phase: string, pct: number, detail?: string) => void,
-  mode: ScanMode = "quick"
+  mode: ScanMode = "quick",
+  disableAI: boolean = false
 ): Promise<SmartScanResult> {
   const aiFiles = mode === "quick" ? selectFilesForQuickScan(files) : files;
   const staticScopeLabel = mode === "quick" ? `${aiFiles.length} priority files` : `${files.length} files`;
@@ -75,21 +76,13 @@ export async function runSmartScan(
 
   onProgress("Code extraction", 45, `${extractedSections.length} high-risk regions · ${tokenReduction}% token reduction`);
 
-  // Phase 3: AI Analysis (direct OpenRouter calls)
-  onProgress("AI review", 50, "Analyzing extracted code with AI…");
-
+  // Phase 3: AI Analysis (direct OpenRouter calls) or skip if disabled
   let aiFindings: AIFinding[] = [];
-  let aiUsed = true;
+  let aiUsed = false;
   
-  try {
-    aiFindings = await runAIAnalysisCLI(projectName, extractedSections, staticFindings, onProgress, mode);
-    aiUsed = true;
-  } catch (error) {
-    console.warn('[AI FALLBACK] AI failed, running ENHANCED static analysis');
-    console.error('[AI Analysis] Error:', error);
-    
-    // Run ENHANCED static analysis as fallback
-    onProgress("Enhanced Analysis", 50, "AI unavailable - running comprehensive static analysis (85% coverage)");
+  if (disableAI) {
+    // Skip AI analysis - use enhanced static analysis only
+    onProgress("Enhanced Analysis", 50, "AI disabled - running comprehensive static analysis (85% coverage)");
     
     const enhancedResult = runEnhancedStaticAnalysis(files);
     
@@ -107,7 +100,39 @@ export async function runSmartScan(
     }));
     
     aiUsed = false;
-    onProgress("Enhanced Analysis", 75, `${aiFindings.length} issues found`);
+    onProgress("Enhanced Analysis", 75, `${aiFindings.length} issues found (static analysis only)`);
+  } else {
+    // Run AI analysis
+    onProgress("AI review", 50, "Analyzing extracted code with AI…");
+    
+    try {
+      aiFindings = await runAIAnalysisCLI(projectName, extractedSections, staticFindings, onProgress, mode);
+      aiUsed = true;
+    } catch (error) {
+      console.warn('[AI FALLBACK] AI failed, running ENHANCED static analysis');
+      console.error('[AI Analysis] Error:', error);
+      
+      // Run ENHANCED static analysis as fallback
+      onProgress("Enhanced Analysis", 50, "AI unavailable - running comprehensive static analysis (85% coverage)");
+      
+      const enhancedResult = runEnhancedStaticAnalysis(files);
+      
+      aiFindings = enhancedResult.findings.map(f => ({
+        id: f.id,
+        severity: f.severity,
+        category: f.category,
+        title: f.title,
+        description: f.description,
+        file: f.file,
+        line: f.line,
+        evidence: f.evidence,
+        mitigation: generateMitigation(f),
+        prevention: generatePrevention(f),
+      }));
+      
+      aiUsed = false;
+      onProgress("Enhanced Analysis", 75, `${aiFindings.length} issues found (${enhancedResult.stats.dataFlowVulnerabilities} data flow, ${enhancedResult.stats.controlFlowIssues} control flow)`);
+    }
   }
 
   onProgress(aiUsed ? "AI review" : "Enhanced Analysis", 75, `${aiFindings.length} additional findings`);

@@ -15,6 +15,7 @@ import { collectFiles } from "./file-collector";
 import { runSmartScan } from "./cli-scan-orchestrator";
 import type { VettReport } from "./types";
 import * as dotenv from "dotenv";
+import { generateHTMLReport } from "./html-report-generator";
 
 const program = new Command();
 
@@ -87,6 +88,7 @@ program
 
       const projectName = path.basename(resolvedPath);
       const scanMode = (options.mode === "deep" ? "deep" : "quick") as "quick" | "deep";
+      const disableAI = options.ai === false; // --no-ai flag
 
       // Run smart scan
       const scanSpinner = ora("Running smart scan...").start();
@@ -98,23 +100,36 @@ program
         (phase, pct, detail) => {
           scanSpinner.text = `${phase} (${pct}%)${detail ? ` - ${detail}` : ''}`;
         },
-        scanMode
+        scanMode,
+        disableAI
       );
 
       scanSpinner.succeed(`Scan complete: ${stats.verifiedFindings} verified issues found`);
 
-      // Display results
+      // Display quick summary in terminal
+      displayQuickSummary(report);
+
+      // Generate detailed HTML report
+      console.log(chalk.cyan('\n[*] Generating detailed report...'));
+      const reportPath = generateHTMLReport(report, {
+        outputDir: resolvedPath,
+        openInBrowser: true,
+      });
+      
+      console.log(chalk.green(`\n[✓] Detailed report generated!`));
+      console.log(chalk.cyan(`[→] File: ${reportPath}`));
+      console.log(chalk.cyan(`[→] Opening in browser...\n`));
+
+      // Display full results if JSON flag
       if (options.json) {
         console.log(JSON.stringify(report, null, 2));
-      } else {
-        displayReport(report, stats);
       }
 
       // Save to file if requested
       if (options.output) {
         const outputPath = path.resolve(options.output);
         fs.writeFileSync(outputPath, JSON.stringify(report, null, 2));
-        console.log(chalk.green(`\n[*] Report saved to: ${outputPath}`));
+        console.log(chalk.green(`[*] JSON report saved to: ${outputPath}`));
       }
 
       // Exit with error code if critical issues found
@@ -130,6 +145,40 @@ program
   });
 
 program.parse();
+
+function displayQuickSummary(report: VettReport): void {
+  console.log('\n' + chalk.bold('═'.repeat(60)));
+  console.log(chalk.bold.cyan('QUICK SUMMARY'));
+  console.log(chalk.bold('═'.repeat(60)));
+
+  // Score
+  const scoreColor = report.score >= 80 ? 'green' : report.score >= 60 ? 'yellow' : 'red';
+  console.log(`\n${chalk.bold('Score:')} ${chalk[scoreColor].bold(report.score + '/100')} ${chalk.bold(`(${report.grade})`)}`);
+  
+  // Findings by severity
+  const findingsBySeverity = {
+    critical: report.findings.filter(f => f.severity === 'critical').length,
+    high: report.findings.filter(f => f.severity === 'high').length,
+    medium: report.findings.filter(f => f.severity === 'medium').length,
+    low: report.findings.filter(f => f.severity === 'low').length,
+  };
+
+  console.log(chalk.bold('\n[*] Findings:'));
+  console.log(`  ${chalk.red.bold(findingsBySeverity.critical)} Critical | ${chalk.red(findingsBySeverity.high)} High | ${chalk.yellow(findingsBySeverity.medium)} Medium | ${chalk.gray(findingsBySeverity.low)} Low`);
+
+  // Top 3 critical issues
+  const topIssues = report.findings.filter(f => f.severity === 'critical' || f.severity === 'high').slice(0, 3);
+  if (topIssues.length > 0) {
+    console.log(chalk.bold.red('\n[!] Top Issues:'));
+    topIssues.forEach((issue, i) => {
+      console.log(`  ${i + 1}. ${issue.title} (${issue.file}:${issue.line})`);
+    });
+  }
+
+  console.log(chalk.bold('\n═'.repeat(60)));
+  console.log(chalk.gray('💡 See detailed report with AI explanations in your browser'));
+  console.log(chalk.bold('═'.repeat(60) + '\n'));
+}
 
 async function showInteractiveHome(): Promise<void> {
   const rl = readline.createInterface({

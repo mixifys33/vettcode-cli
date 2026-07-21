@@ -1,17 +1,20 @@
 import React, { useState, useEffect } from 'react';
-import { useInput, useApp, Box } from 'ink';
+import { useInput, useApp } from 'ink';
 import { Home } from './Home';
 import { Scan } from './Scan';
 import { Results } from './Results';
 import { Help } from './Help';
+import { Settings } from './Settings';
+import type { ScanMode } from '../cli-scan-orchestrator';
 
-type Screen = 'home' | 'scan' | 'results' | 'help' | 'exit';
+type Screen = 'home' | 'scan' | 'results' | 'help' | 'settings' | 'exit';
 
 export const App: React.FC = () => {
   const [screen, setScreen] = useState<Screen>('home');
   const [selectedMenuIndex, setSelectedMenuIndex] = useState(0);
+  const [selectedSettingIndex, setSelectedSettingIndex] = useState(0);
   const [scanDirectory, setScanDirectory] = useState(process.cwd());
-  const [scanMode, setScanMode] = useState<'quick' | 'deep'>('quick');
+  const [scanMode, setScanMode] = useState<ScanMode>('quick');
   const [scanReport, setScanReport] = useState<any>(null);
   const [aiEnabled, setAiEnabled] = useState(true);
   const { exit } = useApp();
@@ -56,17 +59,19 @@ export const App: React.FC = () => {
       if (input === 's' || input === 'S') {
         // Start Smart Scan (auto-detect current directory)
         setScanDirectory(process.cwd());
-        setScanMode('quick');
         setScreen('scan');
         return;
       }
 
       if (key.shift && input === 'S') {
-        // Start Manual Scan (prompt for directory)
-        // For now, use current directory
-        setScanDirectory(process.cwd());
-        setScanMode('deep');
-        setScreen('scan');
+        // Start Manual Scan (go to settings first)
+        setScreen('settings');
+        return;
+      }
+
+      if (input === 'd' || input === 'D') {
+        // Change directory (for now just show settings)
+        setScreen('settings');
         return;
       }
 
@@ -99,12 +104,10 @@ export const App: React.FC = () => {
       if (key.return) {
         switch (selectedMenuIndex) {
           case 0: // Start Scan
-            setScanDirectory(process.cwd());
-            setScanMode('quick');
-            setScreen('scan');
+            setScreen('settings'); // Go to settings first
             break;
           case 1: // View Settings
-            // TODO: Implement settings screen
+            setScreen('settings');
             break;
           case 2: // Configure AI
             setAiEnabled(!aiEnabled);
@@ -119,6 +122,39 @@ export const App: React.FC = () => {
             break;
           case 5: // Exit
             exit();
+            break;
+        }
+        return;
+      }
+    }
+
+    // Settings screen shortcuts
+    if (screen === 'settings') {
+      // Arrow key navigation
+      if (key.upArrow) {
+        setSelectedSettingIndex((prev) => (prev > 0 ? prev - 1 : 3));
+        return;
+      }
+
+      if (key.downArrow) {
+        setSelectedSettingIndex((prev) => (prev < 3 ? prev + 1 : 0));
+        return;
+      }
+
+      // Enter key - Toggle or start scan
+      if (key.return) {
+        switch (selectedSettingIndex) {
+          case 0: // Toggle scan mode
+            setScanMode((prev) => (prev === 'quick' ? 'deep' : 'quick'));
+            break;
+          case 1: // Toggle AI
+            setAiEnabled((prev) => !prev);
+            break;
+          case 2: // Change directory (for now, do nothing)
+            // TODO: Implement directory picker
+            break;
+          case 3: // Start scan
+            setScreen('scan');
             break;
         }
         return;
@@ -164,13 +200,14 @@ export const App: React.FC = () => {
   // Render current screen
   switch (screen) {
     case 'home':
-      return <Home selectedMenuIndex={selectedMenuIndex} />;
+      return <Home selectedMenuIndex={selectedMenuIndex} aiEnabled={aiEnabled} scanMode={scanMode} />;
 
     case 'scan':
       return (
         <Scan
           directory={scanDirectory}
           mode={scanMode}
+          aiEnabled={aiEnabled}
           onComplete={handleScanComplete}
           onCancel={handleScanCancel}
         />
@@ -188,7 +225,18 @@ export const App: React.FC = () => {
     case 'help':
       return <Help onBack={handleBack} />;
 
+    case 'settings':
+      return (
+        <Settings
+          scanMode={scanMode}
+          aiEnabled={aiEnabled}
+          scanDirectory={scanDirectory}
+          selectedOption={selectedSettingIndex}
+          onBack={handleBack}
+        />
+      );
+
     default:
-      return <Home selectedMenuIndex={selectedMenuIndex} />;
+      return <Home selectedMenuIndex={selectedMenuIndex} aiEnabled={aiEnabled} scanMode={scanMode} />;
   }
 };

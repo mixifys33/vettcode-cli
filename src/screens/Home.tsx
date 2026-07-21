@@ -1,5 +1,5 @@
 import React from 'react';
-import { Box } from 'ink';
+import { Box, Text } from 'ink';
 import { Header } from '../ui/Header';
 import { StatsPanel } from '../ui/StatsPanel';
 import { Capabilities } from '../ui/Capabilities';
@@ -7,9 +7,12 @@ import { QuickStart } from '../ui/QuickStart';
 import { Menu } from '../ui/Menu';
 import { ContextPanel } from '../ui/ContextPanel';
 import { Footer } from '../ui/Footer';
+import type { ScanMode } from '../cli-scan-orchestrator';
 
 interface HomeProps {
   selectedMenuIndex: number;
+  aiEnabled?: boolean;
+  scanMode?: ScanMode;
 }
 
 const menuItems = [
@@ -21,11 +24,27 @@ const menuItems = [
   { label: 'Exit', shortcut: 'Q' },
 ];
 
-export const Home: React.FC<HomeProps> = ({ selectedMenuIndex }) => {
+export const Home: React.FC<HomeProps> = ({ selectedMenuIndex, aiEnabled = true, scanMode = 'quick' }) => {
   return (
     <Box flexDirection="column" paddingX={2} paddingY={1}>
       {/* Header */}
       <Header />
+
+      {/* Status Indicators */}
+      <Box marginTop={1} marginBottom={1}>
+        <Box marginRight={3}>
+          <Text color="gray">Mode: </Text>
+          <Text color={scanMode === 'deep' ? 'yellow' : 'cyan'} bold>
+            {scanMode === 'deep' ? 'DEEP' : 'QUICK'}
+          </Text>
+        </Box>
+        <Box>
+          <Text color="gray">AI Analysis: </Text>
+          <Text color={aiEnabled ? 'green' : 'red'} bold>
+            {aiEnabled ? 'ENABLED' : 'DISABLED'}
+          </Text>
+        </Box>
+      </Box>
 
       {/* Stats Panel */}
       <StatsPanel />
