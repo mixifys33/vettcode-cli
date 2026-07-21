@@ -9,11 +9,19 @@ import React from 'react';
 import { render } from 'ink';
 import { App } from './screens/App';
 
-// Clear screen before rendering
-process.stdout.write('\x1Bc');
+// Enable alternate screen buffer (prevents stacking)
+process.stdout.write('\x1b[?1049h'); // Enable alternate screen
+process.stdout.write('\x1b[2J');      // Clear screen
+process.stdout.write('\x1b[H');       // Move cursor to home
 
 // Render the app with fullscreen mode
-render(<App />, {
+const { waitUntilExit, clear } = render(<App />, {
   exitOnCtrlC: true,
   patchConsole: false,
+});
+
+// Cleanup on exit
+waitUntilExit().then(() => {
+  // Disable alternate screen buffer and restore terminal
+  process.stdout.write('\x1b[?1049l'); // Disable alternate screen
 });
