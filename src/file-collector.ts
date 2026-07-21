@@ -12,36 +12,136 @@ export interface CodeFile {
 }
 
 const DEFAULT_IGNORE = [
+  // Dependencies
   "node_modules",
-  ".git",
+  "vendor",
+  "bower_components",
+  "jspm_packages",
+  
+  // Build outputs
   "dist",
   "build",
+  "out",
   ".next",
-  "coverage",
+  ".nuxt",
+  ".output",
+  ".vercel",
+  ".netlify",
+  
+  // Version control
+  ".git",
+  ".svn",
+  ".hg",
+  
+  // IDE/Editor
   ".vscode",
   ".idea",
+  ".eclipse",
+  ".settings",
+  "*.swp",
+  "*.swo",
+  "*~",
+  
+  // Coverage and test artifacts
+  "coverage",
+  ".nyc_output",
+  "test-results",
+  "__pycache__",
+  "*.pyc",
+  "*.pyo",
+  ".pytest_cache",
+  
+  // Cache and temp
+  ".cache",
+  ".tmp",
+  "tmp",
+  "temp",
+  ".temp",
+  
+  // Logs
+  "logs",
   "*.log",
-  "*.min.js",
-  "*.min.css",
+  "npm-debug.log*",
+  "yarn-debug.log*",
+  "yarn-error.log*",
+  
+  // Lock files
   "package-lock.json",
   "yarn.lock",
   "pnpm-lock.yaml",
+  "composer.lock",
+  "Gemfile.lock",
+  "Cargo.lock",
+  
+  // Minified files
+  "*.min.js",
+  "*.min.css",
+  "*.bundle.js",
+  
+  // OS files
+  ".DS_Store",
+  "Thumbs.db",
+  "desktop.ini",
+  
+  // Environment and secrets
+  ".env",
+  ".env.local",
+  ".env.*.local",
+  
+  // Reports (VettCode's own reports)
+  ".vettcode-reports",
 ];
 
 const CODE_EXTENSIONS = [
-  ".js", ".jsx", ".ts", ".tsx",  // JavaScript/TypeScript
-  ".py", ".pyw",                 // Python
-  ".java",                       // Java
-  ".php", ".phtml",              // PHP
-  ".go",                         // Go
-  ".rb",                         // Ruby
-  ".cs",                         // C#
-  ".cpp", ".c", ".h",            // C/C++
-  ".swift",                      // Swift
-  ".kt", ".kts",                 // Kotlin
-  ".rs",                         // Rust
-  ".vue",                       // Vue
-  ".svelte",                    // Svelte
+  // JavaScript/TypeScript
+  ".js", ".jsx", ".mjs", ".cjs",
+  ".ts", ".tsx", ".mts", ".cts",
+  
+  // Python
+  ".py", ".pyw", ".pyx",
+  
+  // Java/JVM
+  ".java", ".kt", ".kts", ".scala", ".groovy",
+  
+  // PHP
+  ".php", ".phtml", ".php3", ".php4", ".php5",
+  
+  // Go
+  ".go",
+  
+  // Ruby
+  ".rb", ".rake", ".gemspec",
+  
+  // C#/.NET
+  ".cs", ".vb", ".fs",
+  
+  // C/C++
+  ".c", ".cpp", ".cc", ".cxx", ".h", ".hpp", ".hxx",
+  
+  // Swift
+  ".swift",
+  
+  // Rust
+  ".rs",
+  
+  // Frontend frameworks
+  ".vue", ".svelte",
+  
+  // Shell scripts
+  ".sh", ".bash", ".zsh",
+  
+  // SQL
+  ".sql",
+  
+  // Other languages
+  ".dart",      // Dart/Flutter
+  ".ex", ".exs", // Elixir
+  ".erl",       // Erlang
+  ".hs",        // Haskell
+  ".lua",       // Lua
+  ".r", ".R",   // R
+  ".sol",       // Solidity
+  ".m",         // Objective-C
 ];
 
 function shouldIgnore(filePath: string, ignorePatterns: string[]): boolean {
