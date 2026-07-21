@@ -177,15 +177,18 @@ ${chalk.bold.cyan('Interactive TUI Mode:')}
       displayQuickSummary(report);
 
       // Generate detailed HTML report
-      console.log(chalk.cyan('\n[*] Generating detailed report...'));
+      console.log(chalk.cyan('\n  [*] Generating detailed HTML report...'));
       const reportPath = generateHTMLReport(report, {
         outputDir: resolvedPath,
         openInBrowser: true,
       });
       
-      console.log(chalk.green(`\n[✓] Detailed report generated!`));
-      console.log(chalk.cyan(`[→] File: ${reportPath}`));
-      console.log(chalk.cyan(`[→] Opening in browser...\n`));
+      console.log(chalk.green(`\n  [✓] Report saved successfully!`));
+      console.log(chalk.cyan(`  [→] Location: ${reportPath}`));
+      console.log(chalk.cyan(`\n  [→] Opening in browser...`));
+      console.log(chalk.gray(`\n  If browser doesn't open, visit:`));
+      console.log(chalk.blue.underline(`  file:///${reportPath.replace(/\\/g, '/')}`));
+      console.log(); // Empty line for spacing
 
       // Display full results if JSON flag
       if (options.json) {
@@ -214,13 +217,14 @@ ${chalk.bold.cyan('Interactive TUI Mode:')}
 program.parse();
 
 function displayQuickSummary(report: VettReport): void {
-  console.log('\n' + chalk.bold('═'.repeat(60)));
-  console.log(chalk.bold.cyan('QUICK SUMMARY'));
-  console.log(chalk.bold('═'.repeat(60)));
+  const width = 70;
+  console.log('\n' + chalk.bold.cyan('─'.repeat(width)));
+  console.log(chalk.bold.cyan('  SCAN RESULTS'));
+  console.log(chalk.bold.cyan('─'.repeat(width)));
 
   // Score
   const scoreColor = report.score >= 80 ? 'green' : report.score >= 60 ? 'yellow' : 'red';
-  console.log(`\n${chalk.bold('Score:')} ${chalk[scoreColor].bold(report.score + '/100')} ${chalk.bold(`(${report.grade})`)}`);
+  console.log(`\n  ${chalk.bold('Score:')} ${chalk[scoreColor].bold(report.score + '/100')} ${chalk.bold(`(${report.grade})`)}`);
   
   // Findings by severity
   const findingsBySeverity = {
@@ -230,21 +234,21 @@ function displayQuickSummary(report: VettReport): void {
     low: report.findings.filter(f => f.severity === 'low').length,
   };
 
-  console.log(chalk.bold('\n[*] Findings:'));
-  console.log(`  ${chalk.red.bold(findingsBySeverity.critical)} Critical | ${chalk.red(findingsBySeverity.high)} High | ${chalk.yellow(findingsBySeverity.medium)} Medium | ${chalk.gray(findingsBySeverity.low)} Low`);
+  console.log(chalk.bold('\n  Findings by Severity:'));
+  console.log(`    ${chalk.red.bold(findingsBySeverity.critical)} Critical  |  ${chalk.red(findingsBySeverity.high)} High  |  ${chalk.yellow(findingsBySeverity.medium)} Medium  |  ${chalk.gray(findingsBySeverity.low)} Low`);
 
   // Top 3 critical issues
   const topIssues = report.findings.filter(f => f.severity === 'critical' || f.severity === 'high').slice(0, 3);
   if (topIssues.length > 0) {
-    console.log(chalk.bold.red('\n[!] Top Issues:'));
+    console.log(chalk.bold.red('\n  Top Priority Issues:'));
     topIssues.forEach((issue, i) => {
-      console.log(`  ${i + 1}. ${issue.title} (${issue.file}:${issue.line})`);
+      const shortFile = issue.file.length > 50 ? '...' + issue.file.slice(-47) : issue.file;
+      console.log(chalk.red(`    ${i + 1}. ${issue.title}`));
+      console.log(chalk.gray(`       ${shortFile}:${issue.line}`));
     });
   }
 
-  console.log(chalk.bold('\n═'.repeat(60)));
-  console.log(chalk.gray('💡 See detailed report with AI explanations in your browser'));
-  console.log(chalk.bold('═'.repeat(60) + '\n'));
+  console.log('\n' + chalk.bold.cyan('─'.repeat(width)));
 }
 
 async function showInteractiveHome(): Promise<void> {

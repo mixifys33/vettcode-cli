@@ -537,11 +537,19 @@ function escapeHtml(text: string): string {
 
 function openInDefaultBrowser(filepath: string) {
   const { exec } = require('child_process');
-  const command = process.platform === 'win32' 
-    ? `start "" "${filepath}"`
-    : process.platform === 'darwin'
-    ? `open "${filepath}"`
-    : `xdg-open "${filepath}"`;
   
-  exec(command);
+  // Convert to absolute path and URL format
+  const absolutePath = path.resolve(filepath);
+  
+  const command = process.platform === 'win32' 
+    ? `start "" "${absolutePath}"`
+    : process.platform === 'darwin'
+    ? `open "${absolutePath}"`
+    : `xdg-open "${absolutePath}"`;
+  
+  exec(command, (error: any) => {
+    if (error) {
+      console.error(`Failed to open browser: ${error.message}`);
+    }
+  });
 }
