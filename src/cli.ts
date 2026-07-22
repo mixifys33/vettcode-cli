@@ -36,7 +36,7 @@ program
   .option("--json", "Output JSON format")
   .option("--mode <mode>", "Scan mode: quick or deep (default: quick)")
   .option("--no-ai", "Disable AI analysis (static only)")
-  .option("--upload", "Upload report to GitHub Pages and get shareable URL")
+  .option("--upload", "Upload report to VettCode web (expires in 7 days) & get shareable link with AI assistant")
   .addHelpText('after', `
 
 Examples:
@@ -53,8 +53,8 @@ Examples:
   $ vettcode . -o results.json              ${chalk.gray('# Save results to JSON file')}
   $ vettcode . --json                       ${chalk.gray('# Print JSON to stdout')}
   $ vettcode . -o report.json --mode deep   ${chalk.gray('# Deep scan + save results')}
-  $ vettcode . --upload                     ${chalk.gray('# Upload report & get shareable URL')}
-  $ vettcode . --upload --mode deep         ${chalk.gray('# Deep scan + upload report')}
+  $ vettcode . --upload                     ${chalk.gray('# Upload to web & get shareable link (expires in 7 days)')}
+  $ vettcode . --upload --mode deep         ${chalk.gray('# Deep scan + upload to web')}
 
   ${chalk.bold.cyan('Filtering:')}
   $ vettcode . -i "node_modules,dist"       ${chalk.gray('# Ignore specific directories')}
@@ -184,7 +184,7 @@ ${chalk.bold.cyan('Interactive TUI Mode:')}
       const reportPath = generateHTMLReport(report, {
         outputDir: resolvedPath,
         openInBrowser: !options.upload, // Don't open browser if uploading
-        forUpload: options.upload, // Save to docs/reports if uploading
+        forUpload: false, // Always save locally
         projectName: projectName,
       });
       
@@ -209,9 +209,9 @@ ${chalk.bold.cyan('Interactive TUI Mode:')}
         console.log(chalk.green(`[*] JSON report saved to: ${outputPath}`));
       }
 
-      // Upload to GitHub Pages if requested
+      // Upload to landing page if requested
       if (options.upload) {
-        await uploadReportToGitHub(reportPath, projectName, scanMode);
+        await uploadReportToLandingPage(report, projectName, scanMode);
       }
 
       // Exit with error code if critical issues found
@@ -509,56 +509,62 @@ function displayReport(report: VettReport, stats?: any): void {
 }
 
 /**
- * Upload report to GitHub Pages by committing to the repo
+ * Upload report to VettCode landing page API
  */
-async function uploadReportToGitHub(
-  reportPath: string,
+async function uploadReportToLandingPage(
+  report: VettReport,
   projectName: string,
   scanMode: "quick" | "deep"
 ): Promise<void> {
-  const uploadSpinner = ora("Uploading report to GitHub Pages...").start();
+  const uploadSpinner = ora("Uploading report to VettCode...").start();
   
   try {
-    const { execSync } = require('child_process');
-    const reportFilename = path.basename(reportPath);
+    // API endpoint
+    const apiUrl = process.env.VETTCODE_API_URL || "https://vettcodecli.vercel.app/api/reports/upload";
     
-    // Get the CLI repo root (where this script is running from)
-    const cliRepoRoot = path.join(__dirname, '..');
-    
-    // Check if we're in a git repository
-    try {
-      execSync('git rev-parse --git-dir', { cwd: cliRepoRoot, stdio: 'pipe' });
-    } catch (error) {
-      uploadSpinner.fail("Not in a git repository");
-      console.error(chalk.red("  Error: --upload requires the CLI to be in a git repository"));
-      return;
+    // Prepare payload
+    const payload = {
+      report,
+      projectName,
+      scanMode,
+    };
+
+    // Upload report
+    uploadSpinner.text = "Sending report to server...";
+    const response = await fetch(apiUrl, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(payload),
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.error || `Server responded with ${response.status}`);
     }
-    
-    // Add the report file
-    execSync(`git add docs/reports/${reportFilename}`, { cwd: cliRepoRoot, stdio: 'pipe' });
-    execSync(`git add docs/reports/index.json`, { cwd: cliRepoRoot, stdio: 'pipe' });
-    
-    // Commit the report
-    const commitMessage = `Add scan report: ${projectName} (${scanMode})`;
-    execSync(`git commit -m "${commitMessage}"`, { cwd: cliRepoRoot, stdio: 'pipe' });
-    
-    // Push to GitHub
-    uploadSpinner.text = "Pushing to GitHub...";
-    execSync('git push', { cwd: cliRepoRoot, stdio: 'pipe' });
-    
-    // Generate the GitHub Pages URL
-    const reportUrl = `https://mixifys33.github.io/vettcode-cli/reports/${reportFilename}`;
+
+    const data = await response.json();
     
     uploadSpinner.succeed("Report uploaded successfully!");
-    console.log(chalk.green(`\n  [✓] Shareable URL:`));
-    console.log(chalk.cyan.bold(`  ${reportUrl}`));
-    console.log(chalk.gray(`\n  Share this URL with your team to view the report online.`));
-    console.log(chalk.gray(`\n  Note: It may take 1-2 minutes for GitHub Pages to update.`));
+    
+    console.log(chalk.green(`\n  [✓] Shareable Report URL:`));
+    console.log(chalk.cyan.bold(`\n      ${data.reportUrl}`));
+    console.log(chalk.gray(`\n  [→] Report ID: ${data.reportId}`));
+    console.log(chalk.gray(`  [→] Expires: ${new Date(data.expiresAt).toLocaleString()}`));
+    console.log(chalk.yellow(`\n  [!] This link will expire in 7 days for security.`));
+    console.log(chalk.gray(`\n  Share this URL with your team to view the report with AI assistant.\n`));
+
+    // Also save local copy
+    console.log(chalk.gray(`  [*] Local copy saved in .vettcode-reports/\n`));
+
   } catch (error) {
     uploadSpinner.fail("Upload failed");
-    console.error(chalk.red(`  Error: ${error instanceof Error ? error.message : String(error)}`));
-    console.log(chalk.yellow(`\n  Tip: Make sure you have:`));
-    console.log(chalk.yellow(`  - Git configured with push access to the repository`));
-    console.log(chalk.yellow(`  - GitHub Pages enabled in repository settings`));
+    console.error(chalk.red(`\n  [X] Error: ${error instanceof Error ? error.message : String(error)}`));
+    console.log(chalk.yellow(`\n  Tips:`));
+    console.log(chalk.yellow(`  • Check your internet connection`));
+    console.log(chalk.yellow(`  • Verify API endpoint: ${process.env.VETTCODE_API_URL || "https://vettcodecli.vercel.app/api/reports/upload"}`));
+    console.log(chalk.yellow(`  • Report is still saved locally in .vettcode-reports/`));
+    console.log();
   }
 }
