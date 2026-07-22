@@ -11,6 +11,8 @@ export interface DetailedReportOptions {
   outputDir?: string;
   openInBrowser?: boolean;
   includeAIExplanations?: boolean;
+  forUpload?: boolean; // If true, save to docs/reports for GitHub Pages
+  projectName?: string;
 }
 
 export function generateHTMLReport(
@@ -20,27 +22,46 @@ export function generateHTMLReport(
   const {
     outputDir = process.cwd(),
     openInBrowser = true,
+    forUpload = false,
+    projectName,
   } = options;
 
+  // Determine output directory
+  let reportsDir: string;
+  let filename: string;
+  
+  if (forUpload) {
+    // Save to docs/reports for GitHub Pages hosting
+    reportsDir = path.join(__dirname, '..', 'docs', 'reports');
+    const reportId = `report_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    filename = `${reportId}.html`;
+  } else {
+    // Save to local .vettcode-reports directory
+    reportsDir = path.join(outputDir, '.vettcode-reports');
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, -5);
+    filename = `vettcode-report-${timestamp}.html`;
+  }
+
   // Create reports directory
-  const reportsDir = path.join(outputDir, '.vettcode-reports');
   if (!fs.existsSync(reportsDir)) {
     fs.mkdirSync(reportsDir, { recursive: true });
   }
 
-  // Generate filename with timestamp
-  const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, -5);
-  const filename = `vettcode-report-${timestamp}.html`;
   const filepath = path.join(reportsDir, filename);
 
-  // Generate HTML content - always use basic template
+  // Generate HTML content
   const html = generateHTMLContent(report);
   
   // Write file
   fs.writeFileSync(filepath, html, 'utf-8');
 
+  // Update manifest if uploading
+  if (forUpload) {
+    updateReportsManifest(filename, projectName || 'Security Scan', reportsDir);
+  }
+
   // Open in browser if requested
-  if (openInBrowser) {
+  if (openInBrowser && !forUpload) {
     openInDefaultBrowser(filepath);
   }
 
@@ -552,4 +573,35 @@ function openInDefaultBrowser(filepath: string) {
       console.error(`Failed to open browser: ${error.message}`);
     }
   });
+}
+
+/**
+ * Update the reports manifest for GitHub Pages listing
+ */
+function updateReportsManifest(filename: string, projectName: string, reportsDir: string): void {
+  try {
+    const manifestPath = path.join(reportsDir, 'index.json');
+    let reports: Array<{filename: string; projectName: string; timestamp: string}> = [];
+    
+    // Read existing manifest if it exists
+    if (fs.existsSync(manifestPath)) {
+      const manifestContent = fs.readFileSync(manifestPath, 'utf-8');
+      reports = JSON.parse(manifestContent);
+    }
+    
+    // Add new report
+    reports.unshift({
+      filename,
+      projectName,
+      timestamp: new Date().toISOString(),
+    });
+    
+    // Keep only last 50 reports
+    reports = reports.slice(0, 50);
+    
+    // Write updated manifest
+    fs.writeFileSync(manifestPath, JSON.stringify(reports, null, 2), 'utf-8');
+  } catch (error) {
+    console.error('Failed to update reports manifest:', error);
+  }
 }

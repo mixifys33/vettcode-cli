@@ -142,7 +142,7 @@ vettcode . --upload --mode deep # Deep scan + online sharing
 
 ### 📤 Share Reports Online
 
-Use `--upload` to get a shareable web URL for your scan results:
+Use `--upload` to commit your report to GitHub Pages and get a shareable URL:
 
 ```bash
 vettcode . --upload
@@ -150,24 +150,24 @@ vettcode . --upload
 
 This will:
 
-- Upload your scan report to the VettCode web app
-- Generate a unique shareable URL
-- Allow team members to view the full report in their browser
+- Generate an HTML report in the `docs/reports/` folder
+- Commit and push the report to the vettcode-cli repository
+- Provide a GitHub Pages URL for sharing with your team
 
 **Example output:**
 
 ```
 [✓] Shareable URL:
-  https://vetted-xi.vercel.app/report/report_1234567890_abc123
+  https://mixifys33.github.io/vettcode-cli/reports/report_1234567890_abc123.html
 
 Share this URL with your team to view the report online.
 ```
 
-**Custom upload URL:**
+**Requirements:**
 
-```bash
-vettcode . --upload --upload-url https://your-custom-domain.com
-```
+- Must be run from within the vettcode-cli git repository
+- Git must be configured with push access
+- GitHub Pages must be enabled in repository settings
 
 ---
 

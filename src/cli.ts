@@ -36,8 +36,7 @@ program
   .option("--json", "Output JSON format")
   .option("--mode <mode>", "Scan mode: quick or deep (default: quick)")
   .option("--no-ai", "Disable AI analysis (static only)")
-  .option("--upload", "Upload report to web app and get shareable URL")
-  .option("--upload-url <url>", "Custom upload URL (default: https://vetted-xi.vercel.app)")
+  .option("--upload", "Upload report to GitHub Pages and get shareable URL")
   .addHelpText('after', `
 
 Examples:
@@ -184,15 +183,19 @@ ${chalk.bold.cyan('Interactive TUI Mode:')}
       console.log(chalk.cyan('\n  [*] Generating detailed HTML report...'));
       const reportPath = generateHTMLReport(report, {
         outputDir: resolvedPath,
-        openInBrowser: true,
+        openInBrowser: !options.upload, // Don't open browser if uploading
+        forUpload: options.upload, // Save to docs/reports if uploading
+        projectName: projectName,
       });
       
-      console.log(chalk.green(`\n  [✓] Report saved successfully!`));
-      console.log(chalk.cyan(`  [→] Location: ${reportPath}`));
-      console.log(chalk.cyan(`\n  [→] Opening in browser...`));
-      console.log(chalk.gray(`\n  If browser doesn't open, visit:`));
-      console.log(chalk.blue.underline(`  file:///${reportPath.replace(/\\/g, '/')}`));
-      console.log(); // Empty line for spacing
+      if (!options.upload) {
+        console.log(chalk.green(`\n  [✓] Report saved successfully!`));
+        console.log(chalk.cyan(`  [→] Location: ${reportPath}`));
+        console.log(chalk.cyan(`\n  [→] Opening in browser...`));
+        console.log(chalk.gray(`\n  If browser doesn't open, visit:`));
+        console.log(chalk.blue.underline(`  file:///${reportPath.replace(/\\/g, '/')}`));
+        console.log(); // Empty line for spacing
+      }
 
       // Display full results if JSON flag
       if (options.json) {
@@ -206,9 +209,9 @@ ${chalk.bold.cyan('Interactive TUI Mode:')}
         console.log(chalk.green(`[*] JSON report saved to: ${outputPath}`));
       }
 
-      // Upload to web app if requested
+      // Upload to GitHub Pages if requested
       if (options.upload) {
-        await uploadReport(report, projectName, scanMode, options.uploadUrl);
+        await uploadReportToGitHub(reportPath, projectName, scanMode);
       }
 
       // Exit with error code if critical issues found
@@ -506,80 +509,56 @@ function displayReport(report: VettReport, stats?: any): void {
 }
 
 /**
- * Upload report to web app and get shareable URL
+ * Upload report to GitHub Pages by committing to the repo
  */
-async function uploadReport(
-  report: VettReport,
+async function uploadReportToGitHub(
+  reportPath: string,
   projectName: string,
-  scanMode: "quick" | "deep",
-  customUrl?: string
+  scanMode: "quick" | "deep"
 ): Promise<void> {
-  const uploadSpinner = ora("Uploading report to web app...").start();
+  const uploadSpinner = ora("Uploading report to GitHub Pages...").start();
   
   try {
-    const baseUrl = customUrl || "https://vetted-xi.vercel.app";
-    const uploadUrl = `${baseUrl}/api/cli-upload`;
+    const { execSync } = require('child_process');
+    const reportFilename = path.basename(reportPath);
     
-    // Use Node.js built-in https module
-    const https = require('https');
-    const url = require('url');
+    // Get the CLI repo root (where this script is running from)
+    const cliRepoRoot = path.join(__dirname, '..');
     
-    const parsedUrl = url.parse(uploadUrl);
-    const postData = JSON.stringify({
-      report,
-      projectName,
-      scanMode,
-    });
-    
-    const options = {
-      hostname: parsedUrl.hostname,
-      port: parsedUrl.port || 443,
-      path: parsedUrl.path,
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Content-Length': Buffer.byteLength(postData),
-      },
-    };
-    
-    const response = await new Promise<{success: boolean; reportUrl?: string; error?: string}>((resolve, reject) => {
-      const req = https.request(options, (res: any) => {
-        let data = '';
-        
-        res.on('data', (chunk: any) => {
-          data += chunk;
-        });
-        
-        res.on('end', () => {
-          try {
-            const jsonResponse = JSON.parse(data);
-            resolve(jsonResponse);
-          } catch (error) {
-            reject(new Error(`Failed to parse response: ${data}`));
-          }
-        });
-      });
-      
-      req.on('error', (error: Error) => {
-        reject(error);
-      });
-      
-      req.write(postData);
-      req.end();
-    });
-    
-    if (response.success && response.reportUrl) {
-      uploadSpinner.succeed("Report uploaded successfully!");
-      console.log(chalk.green(`\n  [✓] Shareable URL:`));
-      console.log(chalk.cyan.bold(`  ${response.reportUrl}`));
-      console.log(chalk.gray(`\n  Share this URL with your team to view the report online.`));
-    } else {
-      uploadSpinner.fail("Upload failed");
-      console.error(chalk.red(`  Error: ${response.error || "Unknown error"}`));
+    // Check if we're in a git repository
+    try {
+      execSync('git rev-parse --git-dir', { cwd: cliRepoRoot, stdio: 'pipe' });
+    } catch (error) {
+      uploadSpinner.fail("Not in a git repository");
+      console.error(chalk.red("  Error: --upload requires the CLI to be in a git repository"));
+      return;
     }
+    
+    // Add the report file
+    execSync(`git add docs/reports/${reportFilename}`, { cwd: cliRepoRoot, stdio: 'pipe' });
+    execSync(`git add docs/reports/index.json`, { cwd: cliRepoRoot, stdio: 'pipe' });
+    
+    // Commit the report
+    const commitMessage = `Add scan report: ${projectName} (${scanMode})`;
+    execSync(`git commit -m "${commitMessage}"`, { cwd: cliRepoRoot, stdio: 'pipe' });
+    
+    // Push to GitHub
+    uploadSpinner.text = "Pushing to GitHub...";
+    execSync('git push', { cwd: cliRepoRoot, stdio: 'pipe' });
+    
+    // Generate the GitHub Pages URL
+    const reportUrl = `https://mixifys33.github.io/vettcode-cli/reports/${reportFilename}`;
+    
+    uploadSpinner.succeed("Report uploaded successfully!");
+    console.log(chalk.green(`\n  [✓] Shareable URL:`));
+    console.log(chalk.cyan.bold(`  ${reportUrl}`));
+    console.log(chalk.gray(`\n  Share this URL with your team to view the report online.`));
+    console.log(chalk.gray(`\n  Note: It may take 1-2 minutes for GitHub Pages to update.`));
   } catch (error) {
     uploadSpinner.fail("Upload failed");
     console.error(chalk.red(`  Error: ${error instanceof Error ? error.message : String(error)}`));
-    console.log(chalk.yellow(`\n  Tip: Make sure you have internet connection and the web app is accessible.`));
+    console.log(chalk.yellow(`\n  Tip: Make sure you have:`));
+    console.log(chalk.yellow(`  - Git configured with push access to the repository`));
+    console.log(chalk.yellow(`  - GitHub Pages enabled in repository settings`));
   }
 }
