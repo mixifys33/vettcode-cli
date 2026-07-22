@@ -6,14 +6,11 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import type { VettReport } from './types';
-import { generateInteractiveHTMLReport } from './interactive-report-generator';
-import type { EnhancedReport } from './types/enhanced-report';
 
 export interface DetailedReportOptions {
   outputDir?: string;
   openInBrowser?: boolean;
   includeAIExplanations?: boolean;
-  enhancedReport?: EnhancedReport;
 }
 
 export function generateHTMLReport(
@@ -23,7 +20,6 @@ export function generateHTMLReport(
   const {
     outputDir = process.cwd(),
     openInBrowser = true,
-    enhancedReport,
   } = options;
 
   // Create reports directory
@@ -37,14 +33,11 @@ export function generateHTMLReport(
   const filename = `vettcode-report-${timestamp}.html`;
   const filepath = path.join(reportsDir, filename);
 
-  // Generate HTML content - use interactive if enhanced report available
-  let html: string;
-  if (enhancedReport) {
-    html = generateInteractiveHTMLReport(enhancedReport, filepath);
-  } else {
-    html = generateHTMLContent(report);
-    fs.writeFileSync(filepath, html, 'utf-8');
-  }
+  // Generate HTML content - always use basic template
+  const html = generateHTMLContent(report);
+  
+  // Write file
+  fs.writeFileSync(filepath, html, 'utf-8');
 
   // Open in browser if requested
   if (openInBrowser) {

@@ -1,6 +1,29 @@
-# VettCode
+# VettCode CLI
 
 **Stop Shipping Broken Code. Scan What Actually Fails in Production.**
+
+---
+
+## 🚀 Two Ways to Use VettCode
+
+### 🌐 **Web Version** ([VettCode Engine](https://github.com/mixifys33/vettcode-egine))
+
+Upload and scan directly in your browser:
+
+- **Live at:** https://vetted-xi.vercel.app/
+- No installation required
+- Visual interface with progress tracking
+- Report history and saved scans
+
+### ⚡ **CLI Version** (This Package)
+
+Run scans directly from your terminal:
+
+- **Install:** `npm install -g vettcode-cli`
+- CI/CD integration
+- Automated security checks
+- Pre-commit hooks
+- Developer workflows
 
 ---
 
@@ -10,9 +33,9 @@
 
 It detects:
 
-* 🔐 **Real security vulnerabilities**
-* ⚙️ **Production-breaking logic flaws**
-* 🧠 **Hidden risks inside “working” code**
+- 🔐 **Real security vulnerabilities**
+- ⚙️ **Production-breaking logic flaws**
+- 🧠 **Hidden risks inside “working” code**
 
 > If your code passes tests but fails in production —
 > **VettCode is what you were missing.**
@@ -33,19 +56,19 @@ The fastest way to understand your codebase risk.
 
 ### ⚡ What You Get
 
-* **0–100 strict production score**
-* **Verified findings (<3% false positives)**
-* **Static + AI hybrid analysis**
-* **Actionable fixes — not just warnings**
+- **0–100 strict production score**
+- **Verified findings (<3% false positives)**
+- **Static + AI hybrid analysis**
+- **Actionable fixes — not just warnings**
 
 ---
 
 ### 🔐 Built for Privacy
 
-* No code is stored
-* No uploads persist
-* Repo scans use temporary snapshots
-* Everything resets after your session
+- No code is stored
+- No uploads persist
+- Repo scans use temporary snapshots
+- Everything resets after your session
 
 > Your code never leaves your control.
 
@@ -55,28 +78,28 @@ The fastest way to understand your codebase risk.
 
 **Quick Scan (Recommended)**
 
-* Targets high-risk areas:
+- Targets high-risk areas:
+  - Auth
+  - Routes
+  - Config
 
-  * Auth
-  * Routes
-  * Config
-* ⏱️ ~1–4 minutes
-* Perfect for first-pass validation
+- ⏱️ ~1–4 minutes
+- Perfect for first-pass validation
 
 **Deep Scan (Release Mode)**
 
-* Full-system analysis
-* Parallel AI processing
-* Detects deeper architectural risks
-* Built for production readiness checks
+- Full-system analysis
+- Parallel AI processing
+- Detects deeper architectural risks
+- Built for production readiness checks
 
 ---
 
 ### 📦 Scan Your Code
 
-* Paste a GitHub / GitLab / Bitbucket URL
-* Upload a folder or ZIP
-* Dependencies & build files auto-excluded
+- Paste a GitHub / GitLab / Bitbucket URL
+- Upload a folder or ZIP
+- Dependencies & build files auto-excluded
 
 ---
 
@@ -122,10 +145,10 @@ vettcode . --no-ai
 Unlike basic scanners, VettCode uses a **multi-layered analysis engine**:
 
 ```
-Static Analysis → 350+ vulnerability patterns  
-AST Extraction → Context-aware slicing  
-AI Analysis → Deep semantic reasoning  
-Verification Layer → Eliminates false positives  
+Static Analysis → 350+ vulnerability patterns
+AST Extraction → Context-aware slicing
+AI Analysis → Deep semantic reasoning
+Verification Layer → Eliminates false positives
 Report Engine → Score + actionable fixes
 ```
 
@@ -135,32 +158,32 @@ Report Engine → Score + actionable fixes
 
 ### Security Vulnerabilities
 
-* SQL Injection
-* XSS
-* Command Injection
-* Path Traversal
-* Hardcoded secrets
-* Auth bypass risks
-* Weak cryptography
+- SQL Injection
+- XSS
+- Command Injection
+- Path Traversal
+- Hardcoded secrets
+- Auth bypass risks
+- Weak cryptography
 
 ### Production Failures
 
-* Unhandled errors
-* Missing validation
-* Race conditions
-* Null/undefined crashes
+- Unhandled errors
+- Missing validation
+- Race conditions
+- Null/undefined crashes
 
 ### Code Quality Risks
 
-* Deep complexity
-* Dead code
-* React anti-patterns
+- Deep complexity
+- Dead code
+- React anti-patterns
 
 ### Database Issues
 
-* N+1 queries
-* Missing limits
-* No timeouts
+- N+1 queries
+- Missing limits
+- No timeouts
 
 ---
 
@@ -183,9 +206,9 @@ MODERATE risk — fix before production
 
 ## 🧠 AI (Optional, Powerful)
 
-* Deep reasoning beyond static rules
-* Only minimal code snippets are analyzed
-* Fully optional — works without AI (~85% capability)
+- Deep reasoning beyond static rules
+- Only minimal code snippets are analyzed
+- Fully optional — works without AI (~85% capability)
 
 ---
 
@@ -201,9 +224,9 @@ MODERATE risk — fix before production
 
 A marketplace where developers:
 
-* Buy real, production-grade systems
-* Sell their code and earn
-* Skip months of rebuilding
+- Buy real, production-grade systems
+- Sell their code and earn
+- Skip months of rebuilding
 
 ---
 
@@ -211,8 +234,8 @@ A marketplace where developers:
 
 Most developers:
 
-* Build great systems
-* Never monetize them
+- Build great systems
+- Never monetize them
 
 VettCode fixes that.
 
@@ -220,10 +243,10 @@ VettCode fixes that.
 
 ### 🧱 What You Get
 
-* Real startup-grade architectures
-* Clean, scalable code
-* Full documentation
-* Instant downloads
+- Real startup-grade architectures
+- Clean, scalable code
+- Full documentation
+- Instant downloads
 
 > Not tutorials. Not boilerplates.
 > **Real systems you can deploy.**
@@ -264,9 +287,9 @@ Make production-quality software the default — not the exception.
 
 Build the most trusted platform for:
 
-* Code verification
-* Developer tooling
-* Production-ready applications
+- Code verification
+- Developer tooling
+- Production-ready applications
 
 ---
 
@@ -274,9 +297,9 @@ Build the most trusted platform for:
 
 VettCode enhances your workflow — it does not replace:
 
-* Security audits
-* Penetration testing
-* Manual reviews
+- Security audits
+- Penetration testing
+- Manual reviews
 
 ---
 
@@ -284,9 +307,9 @@ VettCode enhances your workflow — it does not replace:
 
 We welcome contributions:
 
-* Detection improvements
-* New language support
-* Performance optimizations
+- Detection improvements
+- New language support
+- Performance optimizations
 
 ---
 
@@ -302,5 +325,5 @@ MIT
 
 It’s the difference between:
 
-* Code that works
-* And code that survives production
+- Code that works
+- And code that survives production
