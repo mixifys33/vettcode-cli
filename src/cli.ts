@@ -36,6 +36,8 @@ program
   .option("--json", "Output JSON format")
   .option("--mode <mode>", "Scan mode: quick or deep (default: quick)")
   .option("--no-ai", "Disable AI analysis (static only)")
+  .option("--upload", "Upload report to web app and get shareable URL")
+  .option("--upload-url <url>", "Custom upload URL (default: https://vetted-xi.vercel.app)")
   .addHelpText('after', `
 
 Examples:
@@ -52,6 +54,8 @@ Examples:
   $ vettcode . -o results.json              ${chalk.gray('# Save results to JSON file')}
   $ vettcode . --json                       ${chalk.gray('# Print JSON to stdout')}
   $ vettcode . -o report.json --mode deep   ${chalk.gray('# Deep scan + save results')}
+  $ vettcode . --upload                     ${chalk.gray('# Upload report & get shareable URL')}
+  $ vettcode . --upload --mode deep         ${chalk.gray('# Deep scan + upload report')}
 
   ${chalk.bold.cyan('Filtering:')}
   $ vettcode . -i "node_modules,dist"       ${chalk.gray('# Ignore specific directories')}
@@ -200,6 +204,11 @@ ${chalk.bold.cyan('Interactive TUI Mode:')}
         const outputPath = path.resolve(options.output);
         fs.writeFileSync(outputPath, JSON.stringify(report, null, 2));
         console.log(chalk.green(`[*] JSON report saved to: ${outputPath}`));
+      }
+
+      // Upload to web app if requested
+      if (options.upload) {
+        await uploadReport(report, projectName, scanMode, options.uploadUrl);
       }
 
       // Exit with error code if critical issues found
@@ -494,4 +503,83 @@ function displayReport(report: VettReport, stats?: any): void {
   console.log(chalk.gray(`  Scanned At: ${report.metadata?.scannedAt}`));
 
   console.log(chalk.bold("═".repeat(60) + "\n"));
+}
+
+/**
+ * Upload report to web app and get shareable URL
+ */
+async function uploadReport(
+  report: VettReport,
+  projectName: string,
+  scanMode: "quick" | "deep",
+  customUrl?: string
+): Promise<void> {
+  const uploadSpinner = ora("Uploading report to web app...").start();
+  
+  try {
+    const baseUrl = customUrl || "https://vetted-xi.vercel.app";
+    const uploadUrl = `${baseUrl}/api/cli-upload`;
+    
+    // Use Node.js built-in https module
+    const https = require('https');
+    const url = require('url');
+    
+    const parsedUrl = url.parse(uploadUrl);
+    const postData = JSON.stringify({
+      report,
+      projectName,
+      scanMode,
+    });
+    
+    const options = {
+      hostname: parsedUrl.hostname,
+      port: parsedUrl.port || 443,
+      path: parsedUrl.path,
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Content-Length': Buffer.byteLength(postData),
+      },
+    };
+    
+    const response = await new Promise<{success: boolean; reportUrl?: string; error?: string}>((resolve, reject) => {
+      const req = https.request(options, (res: any) => {
+        let data = '';
+        
+        res.on('data', (chunk: any) => {
+          data += chunk;
+        });
+        
+        res.on('end', () => {
+          try {
+            const jsonResponse = JSON.parse(data);
+            resolve(jsonResponse);
+          } catch (error) {
+            reject(new Error(`Failed to parse response: ${data}`));
+          }
+        });
+      });
+      
+      req.on('error', (error: Error) => {
+        reject(error);
+      });
+      
+      req.write(postData);
+      req.end();
+    });
+    
+    if (response.success && response.reportUrl) {
+      uploadSpinner.succeed("Report uploaded successfully!");
+      console.log(chalk.green(`\n  [✓] Shareable URL:`));
+      console.log(chalk.cyan.bold(`  ${response.reportUrl}`));
+      console.log(chalk.gray(`\n  Share this URL with your team to view the report online.`));
+    } else {
+      uploadSpinner.fail("Upload failed");
+      console.error(chalk.red(`  Error: ${response.error || "Unknown error"}`));
+    }
+  } catch (error) {
+    uploadSpinner.fail("Upload failed");
+    console.error(chalk.red(`  Error: ${error instanceof Error ? error.message : String(error)}`));
+    console.log(chalk.yellow(`\n  Tip: Make sure you have internet connection and the web app is accessible.`));
+  }
 }

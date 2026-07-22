@@ -132,10 +132,41 @@ vettcode .
 vettcode  => this is to open up the main menu
 
 ```bash
-vettcode . --mode deep
-vettcode . --json
-vettcode . -o report.json
-vettcode . --no-ai
+vettcode . --mode deep          # Full analysis with AI
+vettcode . --json               # Output JSON to stdout
+vettcode . -o report.json       # Save to JSON file
+vettcode . --no-ai              # Fast static-only scan
+vettcode . --upload             # Upload report & get shareable URL
+vettcode . --upload --mode deep # Deep scan + online sharing
+```
+
+### 📤 Share Reports Online
+
+Use `--upload` to get a shareable web URL for your scan results:
+
+```bash
+vettcode . --upload
+```
+
+This will:
+
+- Upload your scan report to the VettCode web app
+- Generate a unique shareable URL
+- Allow team members to view the full report in their browser
+
+**Example output:**
+
+```
+[✓] Shareable URL:
+  https://vetted-xi.vercel.app/report/report_1234567890_abc123
+
+Share this URL with your team to view the report online.
+```
+
+**Custom upload URL:**
+
+```bash
+vettcode . --upload --upload-url https://your-custom-domain.com
 ```
 
 ---
