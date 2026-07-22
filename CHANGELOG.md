@@ -1,5 +1,49 @@
 # VettCode CLI Changelog
 
+## [2.2.1] - 2026-07-22
+
+### 🎯 Behavior Change: Auto-Upload by Default
+
+#### Web Upload is Now Default
+
+- **Breaking Change:** Reports now **automatically upload to web** by default
+- Running `vettcode .` uploads to https://vettcodecli.vercel.app
+- No need for `--upload` flag anymore
+- Use `--no-upload` flag to skip web upload (local only)
+
+### Why This Change?
+
+- **Better UX:** Web reports are the primary experience (AI assistant, interactive viewer)
+- **Easier Sharing:** Shareable links by default
+- **Still Local:** Local HTML copy always saved in `.vettcode-reports/`
+- **Opt-Out Available:** Use `--no-upload` for local-only scans
+
+### New Behavior
+
+```bash
+# Default: Scan + upload to web
+vettcode .
+
+# Opt-out: Local only
+vettcode . --no-upload
+```
+
+### Old Behavior (v2.2.0)
+
+```bash
+# Had to explicitly use --upload
+vettcode . --upload  # ← No longer needed
+```
+
+### Updated Output
+
+- More prominent web URL display
+- Beautiful ASCII art box around shareable link
+- Clear indication of features (AI assistant, interactive viewer)
+- Local path shown as backup
+
+---
+
 ## [2.2.0] - 2026-07-22
 
 ### 🎉 Major Features

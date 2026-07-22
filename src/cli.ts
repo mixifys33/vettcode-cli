@@ -36,13 +36,14 @@ program
   .option("--json", "Output JSON format")
   .option("--mode <mode>", "Scan mode: quick or deep (default: quick)")
   .option("--no-ai", "Disable AI analysis (static only)")
-  .option("--upload", "Upload report to VettCode web (expires in 7 days) & get shareable link with AI assistant")
+  .option("--no-upload", "Skip uploading report to web (saves locally only)")
   .addHelpText('after', `
 
 Examples:
   ${chalk.bold.cyan('Basic Usage:')}
-  $ vettcode .                              ${chalk.gray('# Quick scan current directory (default)')}
-  $ vettcode /path/to/project               ${chalk.gray('# Scan specific directory')}
+  $ vettcode .                              ${chalk.gray('# Scan + upload to web (default)')}
+  $ vettcode /path/to/project               ${chalk.gray('# Scan specific directory + upload')}
+  $ vettcode . --no-upload                  ${chalk.gray('# Scan without web upload (local only)')}
 
   ${chalk.bold.cyan('Scan Modes:')}
   $ vettcode . --mode deep                  ${chalk.gray('# Full analysis with AI (2-3 min, most thorough)')}
@@ -50,11 +51,11 @@ Examples:
   $ vettcode .                              ${chalk.gray('# Quick scan (default, balanced speed/depth)')}
 
   ${chalk.bold.cyan('Output Options:')}
-  $ vettcode . -o results.json              ${chalk.gray('# Save results to JSON file')}
-  $ vettcode . --json                       ${chalk.gray('# Print JSON to stdout')}
-  $ vettcode . -o report.json --mode deep   ${chalk.gray('# Deep scan + save results')}
-  $ vettcode . --upload                     ${chalk.gray('# Upload to web & get shareable link (expires in 7 days)')}
-  $ vettcode . --upload --mode deep         ${chalk.gray('# Deep scan + upload to web')}
+  $ vettcode . -o results.json              ${chalk.gray('# Upload + save JSON locally')}
+  $ vettcode . --json                       ${chalk.gray('# Upload + print JSON to stdout')}
+  $ vettcode . --no-upload                  ${chalk.gray('# Local only (no web upload)')}
+  $ vettcode . --no-upload -o report.json   ${chalk.gray('# Local only + save JSON')}
+  $ vettcode . --mode deep                  ${chalk.gray('# Deep scan + upload')}
 
   ${chalk.bold.cyan('Filtering:')}
   $ vettcode . -i "node_modules,dist"       ${chalk.gray('# Ignore specific directories')}
@@ -179,22 +180,28 @@ ${chalk.bold.cyan('Interactive TUI Mode:')}
       // Display quick summary in terminal
       displayQuickSummary(report);
 
-      // Generate detailed HTML report
-      console.log(chalk.cyan('\n  [*] Generating detailed HTML report...'));
+      // Generate detailed HTML report (local copy)
+      console.log(chalk.cyan('\n  [*] Generating reports...'));
       const reportPath = generateHTMLReport(report, {
         outputDir: resolvedPath,
-        openInBrowser: !options.upload, // Don't open browser if uploading
+        openInBrowser: false, // Don't open browser - use web URL instead
         forUpload: false, // Always save locally
         projectName: projectName,
       });
       
-      if (!options.upload) {
-        console.log(chalk.green(`\n  [✓] Report saved successfully!`));
-        console.log(chalk.cyan(`  [→] Location: ${reportPath}`));
-        console.log(chalk.cyan(`\n  [→] Opening in browser...`));
-        console.log(chalk.gray(`\n  If browser doesn't open, visit:`));
+      console.log(chalk.green(`  [✓] Local report saved: ${reportPath}`));
+
+      // Always upload to web (unless --no-upload flag is set)
+      const shouldUpload = options.upload !== false; // Upload by default
+      
+      if (shouldUpload) {
+        await uploadReportToLandingPage(report, projectName, scanMode, reportPath);
+      } else {
+        // Only if user explicitly used --no-upload
+        console.log(chalk.yellow(`\n  [!] Web upload disabled (--no-upload flag)`));
+        console.log(chalk.cyan(`  [→] View local report:`));
         console.log(chalk.blue.underline(`  file:///${reportPath.replace(/\\/g, '/')}`));
-        console.log(); // Empty line for spacing
+        console.log();
       }
 
       // Display full results if JSON flag
@@ -207,11 +214,6 @@ ${chalk.bold.cyan('Interactive TUI Mode:')}
         const outputPath = path.resolve(options.output);
         fs.writeFileSync(outputPath, JSON.stringify(report, null, 2));
         console.log(chalk.green(`[*] JSON report saved to: ${outputPath}`));
-      }
-
-      // Upload to landing page if requested
-      if (options.upload) {
-        await uploadReportToLandingPage(report, projectName, scanMode);
       }
 
       // Exit with error code if critical issues found
@@ -514,7 +516,8 @@ function displayReport(report: VettReport, stats?: any): void {
 async function uploadReportToLandingPage(
   report: VettReport,
   projectName: string,
-  scanMode: "quick" | "deep"
+  scanMode: "quick" | "deep",
+  localReportPath: string
 ): Promise<void> {
   const uploadSpinner = ora("Uploading report to VettCode...").start();
   
@@ -530,7 +533,7 @@ async function uploadReportToLandingPage(
     };
 
     // Upload report
-    uploadSpinner.text = "Sending report to server...";
+    uploadSpinner.text = "Uploading to web platform...";
     const response = await fetch(apiUrl, {
       method: "POST",
       headers: {
@@ -548,23 +551,31 @@ async function uploadReportToLandingPage(
     
     uploadSpinner.succeed("Report uploaded successfully!");
     
-    console.log(chalk.green(`\n  [✓] Shareable Report URL:`));
-    console.log(chalk.cyan.bold(`\n      ${data.reportUrl}`));
-    console.log(chalk.gray(`\n  [→] Report ID: ${data.reportId}`));
-    console.log(chalk.gray(`  [→] Expires: ${new Date(data.expiresAt).toLocaleString()}`));
-    console.log(chalk.yellow(`\n  [!] This link will expire in 7 days for security.`));
-    console.log(chalk.gray(`\n  Share this URL with your team to view the report with AI assistant.\n`));
-
-    // Also save local copy
-    console.log(chalk.gray(`  [*] Local copy saved in .vettcode-reports/\n`));
+    console.log(chalk.green(`\n  ╔════════════════════════════════════════════════════════════════╗`));
+    console.log(chalk.green(`  ║`) + chalk.bold.cyan(`             📊 REPORT READY - VIEW ONLINE              `) + chalk.green(`║`));
+    console.log(chalk.green(`  ╚════════════════════════════════════════════════════════════════╝`));
+    
+    console.log(chalk.cyan.bold(`\n  🌐 Shareable URL:`));
+    console.log(chalk.white.bold(`     ${data.reportUrl}`));
+    
+    console.log(chalk.gray(`\n  ✨ Features:`));
+    console.log(chalk.gray(`     • Interactive vulnerability viewer`));
+    console.log(chalk.gray(`     • AI assistant for security advice`));
+    console.log(chalk.gray(`     • Filter & search findings`));
+    console.log(chalk.gray(`     • Share with your team`));
+    
+    console.log(chalk.yellow(`\n  ⏱️  Expires: ${new Date(data.expiresAt).toLocaleDateString()} (7 days)`));
+    console.log(chalk.gray(`  📁 Local copy: ${localReportPath}\n`));
 
   } catch (error) {
-    uploadSpinner.fail("Upload failed");
+    uploadSpinner.fail("Web upload failed");
     console.error(chalk.red(`\n  [X] Error: ${error instanceof Error ? error.message : String(error)}`));
-    console.log(chalk.yellow(`\n  Tips:`));
-    console.log(chalk.yellow(`  • Check your internet connection`));
-    console.log(chalk.yellow(`  • Verify API endpoint: ${process.env.VETTCODE_API_URL || "https://vettcodecli.vercel.app/api/reports/upload"}`));
-    console.log(chalk.yellow(`  • Report is still saved locally in .vettcode-reports/`));
+    console.log(chalk.yellow(`\n  [!] Don't worry - your report is saved locally:`));
+    console.log(chalk.cyan(`      ${localReportPath}`));
+    console.log(chalk.gray(`\n  Tips:`));
+    console.log(chalk.gray(`  • Check your internet connection`));
+    console.log(chalk.gray(`  • Use --no-upload flag to skip web upload`));
+    console.log(chalk.gray(`  • View local report: file:///${localReportPath.replace(/\\/g, '/')}`));
     console.log();
   }
 }
