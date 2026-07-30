@@ -549,11 +549,11 @@ async function uploadReportToLandingPage(
   scanMode: "quick" | "deep",
   localReportPath: string
 ): Promise<void> {
-  const uploadSpinner = ora("Uploading report to ImageKit...").start();
+  const uploadSpinner = ora("Uploading report...").start();
   
   try {
-    // Import ImageKit uploader
-    const { uploadReportToImageKit } = await import('./imagekit-uploader');
+    // Import API client
+    const { uploadReport } = await import('./api-client');
     
     // Generate unique report ID
     const reportId = `report_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
@@ -571,41 +571,13 @@ async function uploadReportToLandingPage(
       expiresAt: expiresAt.toISOString(),
     };
     
-    // Step 1: Upload to ImageKit
-    uploadSpinner.text = "Uploading to ImageKit...";
-    const uploadResult = await uploadReportToImageKit(reportData, reportId);
-    
-    // Step 2: Register with landing page (optional - just for tracking)
-    uploadSpinner.text = "Registering with landing page...";
-    const apiUrl = process.env.VETTCODE_API_URL || "https://vettcodecli.vercel.app/api/reports/upload";
-    
-    const payload = {
-      reportId: uploadResult.reportId,
-      imageKitUrl: uploadResult.imageKitUrl,
+    // Upload through backend API (handles ImageKit securely)
+    uploadSpinner.text = "Uploading to backend...";
+    const uploadResult = await uploadReport({
+      reportData,
+      reportId,
       projectName,
-      expiresAt: expiresAt.toISOString(),
-    };
-    
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
-    
-    const response = await fetch(apiUrl, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(payload),
-      signal: controller.signal,
     });
-    
-    clearTimeout(timeoutId);
-
-    if (!response.ok) {
-      // Don't fail if landing page registration fails - report is already on ImageKit
-      console.warn(`\n[Warning] Landing page registration failed (${response.status}), but report is uploaded to ImageKit`);
-    }
-
-    const data = await response.json();
     
     uploadSpinner.succeed("Report uploaded successfully!");
     
@@ -614,7 +586,7 @@ async function uploadReportToLandingPage(
     console.log(chalk.green(`  ╚════════════════════════════════════════════════════════════════╝`));
     
     console.log(chalk.cyan.bold(`\n  🌐 Shareable URL:`));
-    console.log(chalk.white.bold(`     ${data.reportUrl || `https://vettcodecli.vercel.app/reports/${reportId}`}`));
+    console.log(chalk.white.bold(`     ${uploadResult.webUrl}`));
     
     console.log(chalk.gray(`\n  ✨ Features:`));
     console.log(chalk.gray(`     • Interactive vulnerability viewer`));
@@ -641,7 +613,7 @@ async function uploadReportToLandingPage(
     console.log(chalk.cyan(`      ${localReportPath}`));
     console.log(chalk.gray(`\n  Tips:`));
     console.log(chalk.gray(`  • Check your internet connection`));
-    console.log(chalk.gray(`  • Verify ImageKit credentials in .env`));
+    console.log(chalk.gray(`  • Try again later if backend is unavailable`));
     console.log(chalk.gray(`  • Use --no-upload flag to skip web upload`));
     console.log(chalk.gray(`  • View local report: file:///${localReportPath.replace(/\\/g, '/')}`));
     console.log();
