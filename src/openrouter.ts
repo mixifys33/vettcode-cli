@@ -1,42 +1,15 @@
+import { getOpenRouterKeys, getOpenRouterModels } from "./config";
+
 const OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions";
 
 let keyIndex = 0;
 
 export function getApiKeys(): string[] {
-  const keys: string[] = [];
-  const combined = process.env.OPENROUTER_API_KEYS;
-  if (combined) {
-    keys.push(
-      ...combined
-        .split(",")
-        .map((k) => k.trim())
-        .filter(Boolean)
-    );
-  }
-  for (let i = 1; i <= 3; i++) {
-    const k = process.env[`OPENROUTER_API_KEY_${i}`];
-    if (k?.trim()) keys.push(k.trim());
-  }
-  
-  // Security: Never log API keys or their partial values
-  if (keys.length === 0) {
-    // Silent - will be handled by caller
-  }
-  
-  return [...new Set(keys)];
+  return getOpenRouterKeys();
 }
 
 export function getModels(): string[] {
-  const raw =
-    process.env.OPENROUTER_MODELS ??
-    "inclusionai/ling-3.0-flash:free,poolside/laguna-xs-2.1:free,cohere/north-mini-code:free";
-  const models = raw
-    .split(",")
-    .map((m) => m.trim())
-    .filter(Boolean);
-  
-  // OpenRouter allows max 3 models in fallback array
-  return models.slice(0, 3);
+  return getOpenRouterModels();
 }
 
 // Rate limiting per API key to prevent exhaustion

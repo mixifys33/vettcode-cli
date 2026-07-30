@@ -3,6 +3,8 @@
  * Used when OpenRouter hits rate limits or fails
  */
 
+import { getGroqKey, getGroqModel as getDefaultGroqModel } from "./config";
+
 const GROQ_URL = "https://api.groq.com/openai/v1/chat/completions";
 
 interface ChatMessage {
@@ -16,11 +18,12 @@ export interface ChatResult {
 }
 
 export function getGroqApiKey(): string | null {
-  return process.env.GROQ_API_KEY?.trim() || null;
+  const key = getGroqKey();
+  return key || null;
 }
 
 export function getGroqModel(): string {
-  return process.env.GROQ_MODEL?.trim() || "llama-3.3-70b-versatile";
+  return getDefaultGroqModel();
 }
 
 export async function groqChatCompletion(

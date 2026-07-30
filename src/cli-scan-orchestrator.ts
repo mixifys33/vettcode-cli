@@ -9,9 +9,14 @@ import { extractHighRiskCode, shouldAnalyzeFile, type ExtractedCode } from "./as
 import { verifyFindings, deduplicateFindings, calculateReportConfidence, type AIFinding, type VerifiedFinding } from "./verification-layer";
 import { selectFilesForQuickScan } from "./scan-priority";
 import type { CodeFile, VettReport } from "./types";
-import { chatCompletion, parseJsonFromModel, getApiKeys, getModels } from "./openrouter";
-import { groqChatCompletion, getGroqApiKey } from "./groq-client";
 import { getAnalysisPrompt } from "./prompts";
+import { analyzeWithAI } from "./api-client";
+
+// Global flags for user-facing messages
+declare global {
+  var __vettcodeRateLimitShown: boolean | undefined;
+  var __vettcodeGroqFallbackShown: boolean | undefined;
+}
 
 export type ScanMode = "quick" | "deep";
 
@@ -211,8 +216,8 @@ export async function runSmartScan(
       reportConfidenceGrade: reportConfidence.grade,
       reportConfidenceExplanation: reportConfidence.explanation,
       staticFindings: deduplicated.filter(f => f.source === "static").length,
-      aiFindings: deduplicated.filter(f => f.source === "ai").length,
-      verifiedFindings: deduplicated.filter(f => f.source === "verified").length,
+      aiFindings: deduplicated.filter(f => f.sources?.includes("ai-analysis")).length, // Count all findings that came from AI
+      verifiedFindings: deduplicated.filter(f => f.source === "verified").length, // Findings confirmed by both AI and static
     },
   };
 
@@ -240,13 +245,6 @@ async function runAIAnalysisCLI(
     return [];
   }
 
-  const apiKeys = getApiKeys();
-  const groqKey = getGroqApiKey();
-  
-  if (apiKeys.length === 0 && !groqKey) {
-    throw new Error("No AI API keys configured. Set OPENROUTER_API_KEY_1 or GROQ_API_KEY in .env");
-  }
-
   const aiFindings: AIFinding[] = [];
   const batchSize = mode === "quick" ? 3 : 5;
   const batches = createBatches(extractedSections, staticFindings, batchSize);
@@ -256,7 +254,7 @@ async function runAIAnalysisCLI(
     onProgress("AI review", progressPct, `Processing batch ${i + 1}/${batches.length}…`);
 
     try {
-      const findings = await analyzeBatchWithAI(projectName, batches[i], i % apiKeys.length, i);
+      const findings = await analyzeBatchWithBackend(projectName, batches[i], i);
       aiFindings.push(...findings);
     } catch (error) {
       console.warn(`Batch ${i + 1} failed, continuing...`);
@@ -306,10 +304,9 @@ function createBatches(
   return batches.slice(0, maxBatches);
 }
 
-async function analyzeBatchWithAI(
+async function analyzeBatchWithBackend(
   projectName: string,
   batch: Batch,
-  keyIndex: number,
   batchIndex: number
 ): Promise<AIFinding[]> {
   const prompt = getAnalysisPrompt(projectName, batch, batchIndex);
@@ -338,123 +335,35 @@ Now analyze the code:`;
   ];
 
   const nodeEnv = process.env.NODE_ENV?.trim() || 'production';
-  const maxRetries = 2;
-  let lastError: Error | null = null;
   
-  // Try OpenRouter first, fallback to Groq on rate limit
-  const hasOpenRouterKey = getApiKeys().length > 0;
-  const hasGroqKey = getGroqApiKey();
-  
-  if (hasOpenRouterKey) {
-    for (let attempt = 0; attempt <= maxRetries; attempt++) {
-      try {
-        const result = await chatCompletion(messages, undefined, 1);
-        
-        // Validate response has content
-        if (!result.content || result.content.trim().length === 0) {
-          lastError = new Error('Empty AI response');
-          if (nodeEnv === 'development') {
-            console.warn(`[Batch ${batchIndex + 1}] Attempt ${attempt + 1}: Empty response from ${result.model}`);
-          }
-          continue;
-        }
-        
-        if (nodeEnv === 'development') {
-          console.log(`[Batch ${batchIndex + 1}] Attempt ${attempt + 1}: Got ${result.content.length} chars from ${result.model}`);
-          console.log(`[Batch ${batchIndex + 1}] Raw response:\n${result.content.substring(0, 1000)}\n${result.content.length > 1000 ? '...[truncated]' : ''}`);
-        }
-        
-        // Try to parse
-        const parsed = parseJsonFromModel<{ findings: AIFinding[] }>(result.content);
-        
-        // Validate structure
-        if (!parsed || typeof parsed !== 'object') {
-          lastError = new Error('Invalid response structure');
-          if (nodeEnv === 'development') {
-            console.warn(`[Batch ${batchIndex + 1}] Attempt ${attempt + 1}: Invalid structure, parsed type: ${typeof parsed}`);
-          }
-          continue;
-        }
-        
-        if (nodeEnv === 'development') {
-          const findingsCount = Array.isArray(parsed.findings) ? parsed.findings.length : 0;
-          console.log(`[Batch ${batchIndex + 1}] ✓ Successfully parsed ${findingsCount} findings from OpenRouter`);
-        }
-        
-        // Return findings or empty array
-        return Array.isArray(parsed.findings) ? parsed.findings : [];
-        
-      } catch (error) {
-        lastError = error instanceof Error ? error : new Error(String(error));
-        
-        if (nodeEnv === 'development') {
-          console.error(`[Batch ${batchIndex + 1}] OpenRouter attempt ${attempt + 1} failed:`, lastError.message);
-        }
-        
-        // If rate limited, break out immediately to try Groq
-        if (lastError.message.includes('Rate limit') || lastError.message.includes('429') || lastError.message.includes('free-models-per-day')) {
-          if (nodeEnv === 'development') {
-            console.log(`[Batch ${batchIndex + 1}] Rate limit detected, breaking to Groq fallback...`);
-          }
-          break; // Break the retry loop to try Groq
-        }
-      }
+  try {
+    if (nodeEnv === 'development') {
+      console.log(`[Batch ${batchIndex + 1}] Calling backend API for analysis...`);
     }
     
-    // Log that OpenRouter failed before trying Groq
+    // Call backend API instead of direct OpenRouter/Groq calls
+    const response = await analyzeWithAI({
+      messages,
+      batchIndex,
+      projectName,
+    });
+    
     if (nodeEnv === 'development') {
-      console.log(`[Batch ${batchIndex + 1}] OpenRouter unavailable${lastError ? `: ${lastError.message}` : ''}`);
-    }
-  }
-  
-  // Fallback to Groq if OpenRouter failed or hit rate limit
-  if (hasGroqKey) {
-    if (nodeEnv === 'development') {
-      console.log(`[Batch ${batchIndex + 1}] === TRYING GROQ FALLBACK ===`);
-      console.log(`[Batch ${batchIndex + 1}] Groq key available: ${hasGroqKey}`);
+      console.log(`[Batch ${batchIndex + 1}] ✓ Got ${response.findings.length} findings from ${response.provider} (${response.model})`);
     }
     
-    try {
-      if (nodeEnv === 'development') {
-        console.log(`[Batch ${batchIndex + 1}] Calling Groq API...`);
-      }
-      
-      const result = await groqChatCompletion(messages, 1);
-      
-      if (!result.content || result.content.trim().length === 0) {
-        throw new Error('Empty response from Groq');
-      }
-      
-      if (nodeEnv === 'development') {
-        console.log(`[Batch ${batchIndex + 1}] Got ${result.content.length} chars from Groq`);
-        console.log(`[Batch ${batchIndex + 1}] Groq response:\n${result.content.substring(0, 1000)}\n${result.content.length > 1000 ? '...[truncated]' : ''}`);
-      }
-      
-      const parsed = parseJsonFromModel<{ findings: AIFinding[] }>(result.content);
-      
-      if (!parsed || typeof parsed !== 'object') {
-        throw new Error('Invalid response structure from Groq');
-      }
-      
-      if (nodeEnv === 'development') {
-        const findingsCount = Array.isArray(parsed.findings) ? parsed.findings.length : 0;
-        console.log(`[Batch ${batchIndex + 1}] ✓ Successfully parsed ${findingsCount} findings from Groq`);
-      }
-      
-      return Array.isArray(parsed.findings) ? parsed.findings : [];
-      
-    } catch (error) {
-      if (nodeEnv === 'development') {
-        console.error(`[Batch ${batchIndex + 1}] Groq fallback failed:`, error instanceof Error ? error.message : String(error));
-      }
+    return response.findings || [];
+    
+  } catch (error) {
+    const errorMsg = error instanceof Error ? error.message : String(error);
+    
+    if (nodeEnv === 'development') {
+      console.error(`[Batch ${batchIndex + 1}] Backend API failed:`, errorMsg);
     }
+    
+    // Gracefully return empty array - static scan still works
+    return [];
   }
-  
-  // PRODUCTION: Gracefully return empty array - static scan still works
-  if (nodeEnv === 'development') {
-    console.warn(`[Batch ${batchIndex + 1}] All AI providers failed. Last error:`, lastError?.message);
-  }
-  return [];
 }
 
 function calculateStrictScore(findings: VerifiedFinding[]): number {
