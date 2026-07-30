@@ -63,22 +63,76 @@ export function generateReport(
 }
 
 function calculateScore(findings: Finding[]): number {
-  if (findings.length === 0) return 100;
+  if (findings.length === 0) return 95; // Not perfect, might have missed issues
 
-  let score = 100;
-  const severityWeights = {
-    critical: 25,
-    high: 15,
-    medium: 8,
-    low: 3,
-    info: 1,
+  // Weighted category-based scoring system
+  // Each severity has its own "bucket" that can be depleted independently
+  // This prevents info/low errors from tanking the entire score
+  
+  const CATEGORY_WEIGHTS = {
+    critical: 35,  // 35% of total score
+    high: 25,      // 25% of total score (Critical + High = 60%)
+    medium: 25,    // 25% of total score
+    low: 10,       // 10% of total score
+    info: 5,       // 5% of total score
   };
-
+  
+  // Count findings by severity
+  const counts = {
+    critical: 0,
+    high: 0,
+    medium: 0,
+    low: 0,
+    info: 0,
+  };
+  
   for (const finding of findings) {
-    score -= severityWeights[finding.severity];
+    counts[finding.severity] += 1;
   }
+  
+  // Calculate score for each category
+  // Each category depletes independently based on issue count
+  const categoryScores = {
+    critical: calculateCategoryScore(counts.critical, CATEGORY_WEIGHTS.critical, 0.5), // 0.5 = aggressive penalty
+    high: calculateCategoryScore(counts.high, CATEGORY_WEIGHTS.high, 0.4),
+    medium: calculateCategoryScore(counts.medium, CATEGORY_WEIGHTS.medium, 0.3),
+    low: calculateCategoryScore(counts.low, CATEGORY_WEIGHTS.low, 0.2),
+    info: calculateCategoryScore(counts.info, CATEGORY_WEIGHTS.info, 0.1), // 0.1 = gentle penalty
+  };
+  
+  // Sum up all category scores
+  const totalScore = Math.round(
+    categoryScores.critical +
+    categoryScores.high +
+    categoryScores.medium +
+    categoryScores.low +
+    categoryScores.info
+  );
+  
+  return Math.max(0, Math.min(100, totalScore));
+}
 
-  return Math.max(0, score);
+/**
+ * Calculate score for a single category using logarithmic decay
+ * This prevents a single category from being completely destroyed by many issues
+ * 
+ * @param issueCount - Number of issues
+ * @param maxPoints - Maximum points for this category
+ * @param decayRate - How fast the score decays (higher = faster decay)
+ */
+function calculateCategoryScore(issueCount: number, maxPoints: number, decayRate: number): number {
+  if (issueCount === 0) return maxPoints;
+  
+  // Logarithmic decay formula: score = maxPoints * e^(-decayRate * issueCount)
+  // This means:
+  // - First few issues hurt a lot
+  // - Additional issues hurt less and less
+  // - Score approaches 0 but never quite reaches it (unless many issues)
+  
+  const score = maxPoints * Math.exp(-decayRate * issueCount);
+  
+  // Round to 2 decimal places for precision
+  return Math.max(0, Math.round(score * 100) / 100);
 }
 
 function calculateGrade(score: number): string {
@@ -102,22 +156,22 @@ function generateExecutiveVerdict(score: number, findings: Finding[]): string {
   const highCount = findings.filter(f => f.severity === "high").length;
 
   if (criticalCount > 0) {
-    return `CRITICAL: This codebase has ${criticalCount} critical security vulnerability(ies) that must be fixed immediately before production deployment.`;
+    return `CRITICAL: ${criticalCount} critical security vulnerabilities detected. This codebase is NOT production-ready and poses immediate security risks. ${highCount > 0 ? `Additionally, ${highCount} high-severity issues require urgent attention.` : ""} Immediate remediation required before any deployment.`;
   }
 
   if (highCount > 3) {
-    return `HIGH RISK: This codebase has ${highCount} high-severity issues that should be addressed before production.`;
+    return `HIGH RISK: This codebase has ${highCount} high-severity issues that should be addressed before production. While not immediately critical, these issues pose significant risks to security, stability, or data integrity.`;
   }
 
   if (score >= 80) {
-    return "GOOD: This codebase has good security practices with minor issues that can be improved.";
+    return `GOOD: This codebase demonstrates solid engineering practices with ${findings.length} minor issues identified. The code is production-ready with recommended improvements for enhanced security and maintainability. Continue monitoring and addressing findings during regular maintenance cycles.`;
   }
 
   if (score >= 60) {
-    return "MODERATE: This codebase has some security and quality concerns that should be addressed.";
+    return `MODERATE: This codebase has ${findings.length} issues spanning security, code quality, and reliability concerns. While functional, it requires attention to several areas before being considered production-hardened. Prioritize high and medium severity findings.`;
   }
 
-  return "POOR: This codebase has significant security and quality issues that require attention.";
+  return `POOR: This codebase has significant security and quality issues (${findings.length} findings) that require immediate attention. Not recommended for production use until critical and high-severity issues are resolved. Consider code review and refactoring for affected areas.`;
 }
 
 function generateStrengths(findings: Finding[]): string[] {

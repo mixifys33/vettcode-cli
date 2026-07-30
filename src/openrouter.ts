@@ -20,13 +20,7 @@ export function getApiKeys(): string[] {
   
   // Security: Never log API keys or their partial values
   if (keys.length === 0) {
-    console.error('[OpenRouter] No API keys found! Check environment variables.');
-    // Don't log which specific env vars are set/unset as this could leak information
-  } else {
-    const nodeEnv = process.env.NODE_ENV?.trim() || 'production';
-    if (nodeEnv === 'development') {
-      console.log(`[OpenRouter] Found ${keys.length} API key(s) configured`);
-    }
+    // Silent - will be handled by caller
   }
   
   return [...new Set(keys)];
@@ -35,7 +29,7 @@ export function getApiKeys(): string[] {
 export function getModels(): string[] {
   const raw =
     process.env.OPENROUTER_MODELS ??
-    "openrouter/free,deepseek/deepseek-chat-v3-0324:free,qwen/qwen-2.5-coder-32b-instruct:free";
+    "inclusionai/ling-3.0-flash:free,poolside/laguna-xs-2.1:free,cohere/north-mini-code:free";
   const models = raw
     .split(",")
     .map((m) => m.trim())
@@ -171,8 +165,8 @@ export async function chatCompletion(
   const body: Record<string, unknown> = {
     models,
     messages,
-    temperature: 0.15, // Slightly higher for more nuanced analysis
-    max_tokens: 6000, // Increased for detailed findings
+    temperature: 0.0, // PRODUCTION: Zero temperature for deterministic, consistent JSON responses
+    max_tokens: 6000,
   };
 
   if (models.length === 1) {
@@ -180,10 +174,10 @@ export async function chatCompletion(
     delete body.models;
   }
 
+  const nodeEnv = process.env.NODE_ENV?.trim() || 'production';
+
   for (let attempt = 0; attempt <= retries; attempt++) {
     try {
-      const nodeEnv = process.env.NODE_ENV?.trim() || 'production';
-      
       if (nodeEnv === 'development') {
         console.log(`[OpenRouter] Attempt ${attempt + 1}/${retries + 1} - Calling ${OPENROUTER_URL}`);
         console.log(`[OpenRouter] Models: ${JSON.stringify(models)}`);
@@ -191,7 +185,7 @@ export async function chatCompletion(
       }
       
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 60000); // 60 second timeout
+      const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout (reduced from 60)
       
       const res = await fetch(OPENROUTER_URL, {
         method: "POST",
@@ -213,14 +207,31 @@ export async function chatCompletion(
 
       if (!res.ok) {
         const errText = await res.text();
-        console.error(`[OpenRouter] Error response:`, errText.slice(0, 500));
+        
+        // Only log in development
+        if (nodeEnv === 'development') {
+          console.error(`[OpenRouter] Error response:`, errText.slice(0, 500));
+        }
         
         // Check for rate limit or temporary errors
         if (res.status === 429 || res.status === 503) {
           if (attempt < retries) {
-            console.warn(`[OpenRouter] Rate limited or service unavailable, retrying in ${2000 * (attempt + 1)}ms...`);
+            if (nodeEnv === 'development') {
+              console.warn(`[OpenRouter] Rate limited or service unavailable, retrying in ${2000 * (attempt + 1)}ms...`);
+            }
             await new Promise(resolve => setTimeout(resolve, 2000 * (attempt + 1)));
             continue;
+          }
+          
+          // On final attempt with rate limit, check if it's the free tier limit
+          if (res.status === 429 && errText.includes('free-models-per-day')) {
+            // PRODUCTION: Show helpful message only once per session
+            if (!global.__vettcodeRateLimitShown) {
+              console.warn('\n⚠️  OpenRouter free tier limit reached (50 requests/day)');
+              console.warn('💡 Add $1 credit to unlock 1000 requests/day: https://openrouter.ai/credits');
+              console.warn('✓  Continuing with enhanced static analysis...\n');
+              global.__vettcodeRateLimitShown = true;
+            }
           }
         }
         
@@ -241,7 +252,9 @@ export async function chatCompletion(
       
       if (!content) {
         if (attempt < retries) {
-          console.warn(`[OpenRouter] Empty response, retrying (${attempt + 1}/${retries})...`);
+          if (nodeEnv === 'development') {
+            console.warn(`[OpenRouter] Empty response, retrying (${attempt + 1}/${retries})...`);
+          }
           await new Promise(resolve => setTimeout(resolve, 1000));
           continue;
         }
@@ -253,17 +266,21 @@ export async function chatCompletion(
       }
       return { content, model: data.model ?? models[0] };
     } catch (error) {
-      // Log error for debugging
-      if (error instanceof Error) {
+      // PRODUCTION: Only log errors in development mode
+      if (nodeEnv === 'development' && error instanceof Error) {
         console.error(`[OpenRouter] Request error: ${error.message}`);
       }
       
       if (attempt === retries) {
-        console.error(`[OpenRouter] ✗ All attempts failed:`, error);
-        // Return a graceful fallback instead of throwing
+        if (nodeEnv === 'development') {
+          console.error(`[OpenRouter] ✗ All attempts failed:`, error);
+        }
+        // PRODUCTION: Throw silently - will be caught by caller
         throw new Error(`API request failed after ${retries + 1} attempts: ${error instanceof Error ? error.message : 'Unknown error'}`);
       }
-      console.warn(`[OpenRouter] Attempt ${attempt + 1} failed, retrying...`, error);
+      if (nodeEnv === 'development') {
+        console.warn(`[OpenRouter] Attempt ${attempt + 1} failed, retrying...`, error);
+      }
       await new Promise(resolve => setTimeout(resolve, 1000));
     }
   }
@@ -279,90 +296,134 @@ export function parseJsonFromModel<T>(raw: string): T {
     throw new Error('Invalid input: empty or non-string value');
   }
   
-  // Check for potentially malicious patterns
-  const dangerousPatterns = [
-    /<script/i,
-    /javascript:/i,
-    /on\w+\s*=/i,
-    /eval\s*\(/i,
-    /Function\s*\(/i,
-  ];
+  // PRODUCTION: Remove all common AI prefixes and suffixes AGGRESSIVELY
+  let cleaned = trimmed;
   
-  for (const pattern of dangerousPatterns) {
-    if (pattern.test(trimmed)) {
-      throw new Error('Potentially malicious content detected in JSON');
-    }
-  }
+  // Remove entire lines that are explanations (multiline support)
+  cleaned = cleaned.replace(/^(?:User Safety|Safety|Note|Here (?:is|are)|The (?:analysis|findings|results?)|I found|Based on).*$/gim, '');
   
-  // Try to extract JSON from markdown code blocks
-  const fenceMatch = trimmed.match(/```(?:json)?\s*([\s\S]*?)```/);
-  let jsonStr = fenceMatch ? fenceMatch[1].trim() : trimmed;
+  // Remove markdown code blocks (all variants)
+  cleaned = cleaned.replace(/```(?:json|javascript|js)?\s*/gi, '');
   
-  // Remove any leading/trailing text that's not JSON
-  const jsonStart = jsonStr.indexOf('{');
-  const jsonEnd = jsonStr.lastIndexOf('}');
+  // Remove "Response:" or similar prefixes
+  cleaned = cleaned.replace(/^(?:Response|Answer|Result|Output):\s*/gim, '');
   
-  if (jsonStart !== -1 && jsonEnd !== -1 && jsonEnd > jsonStart) {
-    jsonStr = jsonStr.substring(jsonStart, jsonEnd + 1);
-  }
+  // Trim again after removals
+  cleaned = cleaned.trim();
   
-  try {
-    const parsed = JSON.parse(jsonStr);
-    // Validate parsed object is not a function or contains functions
-    if (typeof parsed === 'function') {
-      throw new Error('Invalid JSON: function detected');
-    }
-    // Recursively check for functions in objects
-    const checkForFunctions = (obj: any): void => {
-      if (typeof obj === 'function') {
-        throw new Error('Invalid JSON: function detected in object');
-      }
-      if (obj && typeof obj === 'object') {
-        for (const key in obj) {
-          if (obj.hasOwnProperty(key)) {
-            checkForFunctions(obj[key]);
-          }
+  // PRODUCTION: Extract JSON - find FIRST { or [ to LAST matching } or ]
+  const jsonStart = cleaned.indexOf('{');
+  const jsonArrayStart = cleaned.indexOf('[');
+  
+  let startIndex = -1;
+  let endIndex = -1;
+  
+  // Determine which comes first
+  if (jsonStart !== -1 && (jsonArrayStart === -1 || jsonStart < jsonArrayStart)) {
+    startIndex = jsonStart;
+    // Find matching closing brace
+    let depth = 0;
+    for (let i = jsonStart; i < cleaned.length; i++) {
+      if (cleaned[i] === '{') depth++;
+      if (cleaned[i] === '}') {
+        depth--;
+        if (depth === 0) {
+          endIndex = i;
+          break;
         }
       }
-    };
-    checkForFunctions(parsed);
-    return parsed as T;
-  } catch (error) {
-    // Log initial parse error
-    if (error instanceof Error) {
-      console.error(`[JSON Parse] Initial parse failed: ${error.message}`);
     }
+  } else if (jsonArrayStart !== -1) {
+    startIndex = jsonArrayStart;
+    // Find matching closing bracket
+    let depth = 0;
+    for (let i = jsonArrayStart; i < cleaned.length; i++) {
+      if (cleaned[i] === '[') depth++;
+      if (cleaned[i] === ']') {
+        depth--;
+        if (depth === 0) {
+          endIndex = i;
+          break;
+        }
+      }
+    }
+  }
+  
+  if (startIndex === -1 || endIndex === -1 || endIndex <= startIndex) {
+    throw new Error('No JSON structure found in response');
+  }
+  
+  let jsonStr = cleaned.substring(startIndex, endIndex + 1);
+  
+  // PRODUCTION: Try multiple parsing strategies
+  const parseStrategies = [
+    // Strategy 1: Direct parse
+    () => JSON.parse(jsonStr),
     
-    // Try to fix common JSON issues
-    try {
-      // Fix unescaped quotes in strings
+    // Strategy 2: Fix common issues
+    () => {
       const fixed = jsonStr
-        .replace(/([^\\])"([^"]*)":/g, '$1\\"$2":') // Fix keys
-        .replace(/: "([^"]*)"([^,}\]])/g, ': "$1\\"$2'); // Fix values
+        .replace(/,\s*}/g, '}')  // Remove trailing commas in objects
+        .replace(/,\s*]/g, ']')  // Remove trailing commas in arrays
+        .replace(/(['"])?([a-zA-Z0-9_]+)(['"])?\s*:/g, '"$2":')  // Fix unquoted keys
+        .replace(/:\s*'([^']*)'/g, ':"$1"');  // Convert single quotes to double
+      return JSON.parse(fixed);
+    },
+    
+    // Strategy 3: More aggressive fixes
+    () => {
+      const aggressive = jsonStr
+        .replace(/,\s*}/g, '}')
+        .replace(/,\s*]/g, ']')
+        .replace(/(['"])?([a-zA-Z0-9_]+)(['"])?\s*:/g, '"$2":')
+        .replace(/:\s*'([^']*)'/g, ':"$1"')
+        .replace(/\n/g, ' ')  // Remove newlines
+        .replace(/\s+/g, ' ')  // Normalize whitespace
+        .replace(/\\/g, '\\\\');  // Escape backslashes properly
+      return JSON.parse(aggressive);
+    },
+    
+    // Strategy 4: Ultra-aggressive - fix multiline strings
+    () => {
+      const ultra = jsonStr
+        .replace(/,\s*}/g, '}')
+        .replace(/,\s*]/g, ']')
+        .replace(/(['"])?([a-zA-Z0-9_]+)(['"])?\s*:/g, '"$2":')
+        .replace(/:\s*"([^"]*?)"\s*([,}\]])/gs, (match, content, terminator) => {
+          // Remove internal newlines in string values
+          const cleaned = content.replace(/\n/g, ' ').replace(/\s+/g, ' ');
+          return `:"${cleaned}"${terminator}`;
+        });
+      return JSON.parse(ultra);
+    }
+  ];
+  
+  let lastError: Error | null = null;
+  
+  for (let i = 0; i < parseStrategies.length; i++) {
+    try {
+      const parsed = parseStrategies[i]();
       
-      const parsed = JSON.parse(fixed);
-      // Validate parsed object
+      // PRODUCTION: Validate it's not a function
       if (typeof parsed === 'function') {
         throw new Error('Invalid JSON: function detected');
       }
-      const checkForFunctions = (obj: any): void => {
-        if (typeof obj === 'function') {
-          throw new Error('Invalid JSON: function detected in object');
-        }
-        if (obj && typeof obj === 'object') {
-          for (const key in obj) {
-            if (obj.hasOwnProperty(key)) {
-              checkForFunctions(obj[key]);
-            }
-          }
-        }
-      };
-      checkForFunctions(parsed);
+      
+      const nodeEnv = process.env.NODE_ENV?.trim() || 'production';
+      if (nodeEnv === 'development' && i > 0) {
+        console.log(`[JSON Parse] Success using strategy ${i + 1}/${parseStrategies.length}`);
+      }
+      
       return parsed as T;
-    } catch (fixError) {
-      console.error('[JSON Parse] Failed to parse JSON:', jsonStr.substring(0, 500));
-      console.error('[JSON Parse] Fix attempt also failed:', fixError);
-      throw new Error(`Invalid JSON response from AI: ${error instanceof Error ? error.message : 'Parse error'}`);
+    } catch (error) {
+      lastError = error instanceof Error ? error : new Error(String(error));
     }
   }
+  
+  // PRODUCTION: All strategies failed
+  const nodeEnv = process.env.NODE_ENV?.trim() || 'production';
+  if (nodeEnv === 'development') {
+    console.error('[JSON Parse] All strategies failed. First 500 chars of extracted JSON:', jsonStr.substring(0, 500));
+  }
+  throw new Error(`Invalid JSON response from AI: ${lastError?.message || 'Parse error'}`);
 }

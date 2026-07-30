@@ -1,6 +1,6 @@
 {
   "name": "vettcode-cli",
-  "version": "2.2.1",
+  "version": "2.4.1",
   "description": "CLI version of VettCode - AI-powered codebase security and quality scanner",
   "main": "dist/cli.js",
   "bin": {
@@ -57,6 +57,7 @@
     "cli-table3": "^0.6.3",
     "commander": "^11.1.0",
     "dotenv": "^16.4.0",
+    "imagekit": "^5.2.0",
     "ink": "^3.2.0",
     "ink-spinner": "^4.0.3",
     "ora": "^5.4.1",

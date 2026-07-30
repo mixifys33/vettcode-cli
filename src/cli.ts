@@ -16,6 +16,22 @@ import { runSmartScan } from "./cli-scan-orchestrator";
 import type { VettReport } from "./types";
 import * as dotenv from "dotenv";
 import { generateHTMLReport } from "./html-report-generator";
+import * as os from "os";
+
+// Load environment variables from multiple locations
+// Priority: CWD .env > Home ~/.vettcode.env > CLI install dir .env
+const cwd = process.cwd();
+const homeDir = os.homedir();
+const cliDir = path.join(__dirname, '..');
+
+// Try to load from current working directory first
+dotenv.config({ path: path.join(cwd, '.env') });
+
+// Then try user's home directory
+dotenv.config({ path: path.join(homeDir, '.vettcode.env') });
+
+// Finally, CLI installation directory (fallback)
+dotenv.config({ path: path.join(cliDir, '.env') });
 
 // Read version from package.json
 const packageJson = JSON.parse(
@@ -37,6 +53,7 @@ program
   .option("--mode <mode>", "Scan mode: quick or deep (default: quick)")
   .option("--no-ai", "Disable AI analysis (static only)")
   .option("--no-upload", "Skip uploading report to web (saves locally only)")
+  .option("--api-url <url>", "Custom API URL for report upload (default: https://vettcodecli.vercel.app/api/reports/upload)")
   .addHelpText('after', `
 
 Examples:
@@ -104,8 +121,21 @@ ${chalk.bold.cyan('Interactive TUI Mode:')}
 `)
   .action(async (directory: string | undefined, options) => {
     try {
-      // Load environment variables
+      // Load environment variables from multiple locations
+      // 1. Try to load from current working directory
       dotenv.config();
+      
+      // 2. Also try to load from the CLI installation directory (for global installs)
+      const cliEnvPath = path.join(__dirname, '..', '.env');
+      if (fs.existsSync(cliEnvPath)) {
+        dotenv.config({ path: cliEnvPath });
+      }
+      
+      // 3. Also try user home directory for global config
+      const homeEnvPath = path.join(require('os').homedir(), '.vettcode.env');
+      if (fs.existsSync(homeEnvPath)) {
+        dotenv.config({ path: homeEnvPath });
+      }
 
       // If no directory provided, launch interactive Ink TUI
       if (!directory) {
@@ -511,7 +541,7 @@ function displayReport(report: VettReport, stats?: any): void {
 }
 
 /**
- * Upload report to VettCode landing page API
+ * Upload report to ImageKit then register with landing page
  */
 async function uploadReportToLandingPage(
   report: VettReport,
@@ -519,32 +549,60 @@ async function uploadReportToLandingPage(
   scanMode: "quick" | "deep",
   localReportPath: string
 ): Promise<void> {
-  const uploadSpinner = ora("Uploading report to VettCode...").start();
+  const uploadSpinner = ora("Uploading report to ImageKit...").start();
   
   try {
-    // API endpoint
+    // Import ImageKit uploader
+    const { uploadReportToImageKit } = await import('./imagekit-uploader');
+    
+    // Generate unique report ID
+    const reportId = `report_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    
+    // Set expiration (4 days from now)
+    const expiresAt = new Date();
+    expiresAt.setDate(expiresAt.getDate() + 4);
+    
+    const reportData = {
+      id: reportId,
+      projectName,
+      ...report,
+      scanMode,
+      createdAt: new Date().toISOString(),
+      expiresAt: expiresAt.toISOString(),
+    };
+    
+    // Step 1: Upload to ImageKit
+    uploadSpinner.text = "Uploading to ImageKit...";
+    const uploadResult = await uploadReportToImageKit(reportData, reportId);
+    
+    // Step 2: Register with landing page (optional - just for tracking)
+    uploadSpinner.text = "Registering with landing page...";
     const apiUrl = process.env.VETTCODE_API_URL || "https://vettcodecli.vercel.app/api/reports/upload";
     
-    // Prepare payload
     const payload = {
-      report,
+      reportId: uploadResult.reportId,
+      imageKitUrl: uploadResult.imageKitUrl,
       projectName,
-      scanMode,
+      expiresAt: expiresAt.toISOString(),
     };
-
-    // Upload report
-    uploadSpinner.text = "Uploading to web platform...";
+    
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+    
     const response = await fetch(apiUrl, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
       },
       body: JSON.stringify(payload),
+      signal: controller.signal,
     });
+    
+    clearTimeout(timeoutId);
 
     if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      throw new Error(errorData.error || `Server responded with ${response.status}`);
+      // Don't fail if landing page registration fails - report is already on ImageKit
+      console.warn(`\n[Warning] Landing page registration failed (${response.status}), but report is uploaded to ImageKit`);
     }
 
     const data = await response.json();
@@ -556,7 +614,7 @@ async function uploadReportToLandingPage(
     console.log(chalk.green(`  ╚════════════════════════════════════════════════════════════════╝`));
     
     console.log(chalk.cyan.bold(`\n  🌐 Shareable URL:`));
-    console.log(chalk.white.bold(`     ${data.reportUrl}`));
+    console.log(chalk.white.bold(`     ${data.reportUrl || `https://vettcodecli.vercel.app/reports/${reportId}`}`));
     
     console.log(chalk.gray(`\n  ✨ Features:`));
     console.log(chalk.gray(`     • Interactive vulnerability viewer`));
@@ -564,16 +622,26 @@ async function uploadReportToLandingPage(
     console.log(chalk.gray(`     • Filter & search findings`));
     console.log(chalk.gray(`     • Share with your team`));
     
-    console.log(chalk.yellow(`\n  ⏱️  Expires: ${new Date(data.expiresAt).toLocaleDateString()} (7 days)`));
+    console.log(chalk.yellow(`\n  ⏱️  Expires: ${expiresAt.toLocaleDateString()} (4 days)`));
     console.log(chalk.gray(`  📁 Local copy: ${localReportPath}\n`));
 
   } catch (error) {
-    uploadSpinner.fail("Web upload failed");
-    console.error(chalk.red(`\n  [X] Error: ${error instanceof Error ? error.message : String(error)}`));
+    uploadSpinner.fail("Upload failed");
+    
+    let errorMsg = error instanceof Error ? error.message : String(error);
+    if (error instanceof Error && error.name === 'AbortError') {
+      errorMsg = 'Upload timeout exceeded';
+    } else if (error instanceof TypeError && errorMsg.includes('fetch')) {
+      errorMsg = 'Network error - check internet connection or firewall';
+    }
+    
+    console.error(chalk.red(`\n  [X] Error: ${errorMsg}`));
+    
     console.log(chalk.yellow(`\n  [!] Don't worry - your report is saved locally:`));
     console.log(chalk.cyan(`      ${localReportPath}`));
     console.log(chalk.gray(`\n  Tips:`));
     console.log(chalk.gray(`  • Check your internet connection`));
+    console.log(chalk.gray(`  • Verify ImageKit credentials in .env`));
     console.log(chalk.gray(`  • Use --no-upload flag to skip web upload`));
     console.log(chalk.gray(`  • View local report: file:///${localReportPath.replace(/\\/g, '/')}`));
     console.log();

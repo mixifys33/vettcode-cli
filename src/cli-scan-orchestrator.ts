@@ -10,6 +10,7 @@ import { verifyFindings, deduplicateFindings, calculateReportConfidence, type AI
 import { selectFilesForQuickScan } from "./scan-priority";
 import type { CodeFile, VettReport } from "./types";
 import { chatCompletion, parseJsonFromModel, getApiKeys, getModels } from "./openrouter";
+import { groqChatCompletion, getGroqApiKey } from "./groq-client";
 import { getAnalysisPrompt } from "./prompts";
 
 export type ScanMode = "quick" | "deep";
@@ -240,8 +241,10 @@ async function runAIAnalysisCLI(
   }
 
   const apiKeys = getApiKeys();
-  if (apiKeys.length === 0) {
-    throw new Error("No OpenRouter API keys configured. Set OPENROUTER_API_KEY_1, _2, _3 or OPENROUTER_API_KEYS.");
+  const groqKey = getGroqApiKey();
+  
+  if (apiKeys.length === 0 && !groqKey) {
+    throw new Error("No AI API keys configured. Set OPENROUTER_API_KEY_1 or GROQ_API_KEY in .env");
   }
 
   const aiFindings: AIFinding[] = [];
@@ -311,20 +314,147 @@ async function analyzeBatchWithAI(
 ): Promise<AIFinding[]> {
   const prompt = getAnalysisPrompt(projectName, batch, batchIndex);
   
+  // PRODUCTION: Ultra-strict system prompt to enforce JSON-only responses
+  const systemPrompt = `You are a security code analysis API that returns ONLY JSON.
+
+ABSOLUTE REQUIREMENTS - FAILURE TO COMPLY WILL BREAK THE SYSTEM:
+1. Return ONLY valid JSON - NO explanations, NO markdown, NO text
+2. Response format: {"findings": [...]}
+3. Each finding needs: severity, category, title, description, file, line, evidence, mitigation, prevention
+4. severity values: "critical", "high", "medium", "low", "info"
+5. category values: "security", "production", "typing", "logic", "database", "performance", "reliability", "configuration", "code-quality", "react", "other"
+6. NO code blocks, NO markdown formatting
+7. NO safety disclaimers or notes
+8. If no issues: {"findings": []}
+
+Example valid response:
+{"findings":[{"severity":"high","category":"security","title":"SQL Injection","description":"User input directly in query","file":"api.ts","line":42,"evidence":"db.query('SELECT * FROM users WHERE id=' + userId)","mitigation":"Use parameterized queries","prevention":"Always use ORM or prepared statements"}]}
+
+Now analyze the code:`;
+
   const messages = [
-    { role: "system" as const, content: "You are a security code analysis expert. Analyze the provided code for vulnerabilities and provide findings in JSON format." },
+    { role: "system" as const, content: systemPrompt },
     { role: "user" as const, content: prompt }
   ];
 
-  const result = await chatCompletion(messages, undefined, 2);
+  const nodeEnv = process.env.NODE_ENV?.trim() || 'production';
+  const maxRetries = 2;
+  let lastError: Error | null = null;
   
-  try {
-    const parsed = parseJsonFromModel<{ findings: AIFinding[] }>(result.content);
-    return parsed.findings || [];
-  } catch (error) {
-    console.error("Failed to parse AI response:", error);
-    return [];
+  // Try OpenRouter first, fallback to Groq on rate limit
+  const hasOpenRouterKey = getApiKeys().length > 0;
+  const hasGroqKey = getGroqApiKey();
+  
+  if (hasOpenRouterKey) {
+    for (let attempt = 0; attempt <= maxRetries; attempt++) {
+      try {
+        const result = await chatCompletion(messages, undefined, 1);
+        
+        // Validate response has content
+        if (!result.content || result.content.trim().length === 0) {
+          lastError = new Error('Empty AI response');
+          if (nodeEnv === 'development') {
+            console.warn(`[Batch ${batchIndex + 1}] Attempt ${attempt + 1}: Empty response from ${result.model}`);
+          }
+          continue;
+        }
+        
+        if (nodeEnv === 'development') {
+          console.log(`[Batch ${batchIndex + 1}] Attempt ${attempt + 1}: Got ${result.content.length} chars from ${result.model}`);
+          console.log(`[Batch ${batchIndex + 1}] Raw response:\n${result.content.substring(0, 1000)}\n${result.content.length > 1000 ? '...[truncated]' : ''}`);
+        }
+        
+        // Try to parse
+        const parsed = parseJsonFromModel<{ findings: AIFinding[] }>(result.content);
+        
+        // Validate structure
+        if (!parsed || typeof parsed !== 'object') {
+          lastError = new Error('Invalid response structure');
+          if (nodeEnv === 'development') {
+            console.warn(`[Batch ${batchIndex + 1}] Attempt ${attempt + 1}: Invalid structure, parsed type: ${typeof parsed}`);
+          }
+          continue;
+        }
+        
+        if (nodeEnv === 'development') {
+          const findingsCount = Array.isArray(parsed.findings) ? parsed.findings.length : 0;
+          console.log(`[Batch ${batchIndex + 1}] ✓ Successfully parsed ${findingsCount} findings from OpenRouter`);
+        }
+        
+        // Return findings or empty array
+        return Array.isArray(parsed.findings) ? parsed.findings : [];
+        
+      } catch (error) {
+        lastError = error instanceof Error ? error : new Error(String(error));
+        
+        if (nodeEnv === 'development') {
+          console.error(`[Batch ${batchIndex + 1}] OpenRouter attempt ${attempt + 1} failed:`, lastError.message);
+        }
+        
+        // If rate limited, break out immediately to try Groq
+        if (lastError.message.includes('Rate limit') || lastError.message.includes('429') || lastError.message.includes('free-models-per-day')) {
+          if (nodeEnv === 'development') {
+            console.log(`[Batch ${batchIndex + 1}] Rate limit detected, breaking to Groq fallback...`);
+          }
+          break; // Break the retry loop to try Groq
+        }
+      }
+    }
+    
+    // Log that OpenRouter failed before trying Groq
+    if (nodeEnv === 'development') {
+      console.log(`[Batch ${batchIndex + 1}] OpenRouter unavailable${lastError ? `: ${lastError.message}` : ''}`);
+    }
   }
+  
+  // Fallback to Groq if OpenRouter failed or hit rate limit
+  if (hasGroqKey) {
+    if (nodeEnv === 'development') {
+      console.log(`[Batch ${batchIndex + 1}] === TRYING GROQ FALLBACK ===`);
+      console.log(`[Batch ${batchIndex + 1}] Groq key available: ${hasGroqKey}`);
+    }
+    
+    try {
+      if (nodeEnv === 'development') {
+        console.log(`[Batch ${batchIndex + 1}] Calling Groq API...`);
+      }
+      
+      const result = await groqChatCompletion(messages, 1);
+      
+      if (!result.content || result.content.trim().length === 0) {
+        throw new Error('Empty response from Groq');
+      }
+      
+      if (nodeEnv === 'development') {
+        console.log(`[Batch ${batchIndex + 1}] Got ${result.content.length} chars from Groq`);
+        console.log(`[Batch ${batchIndex + 1}] Groq response:\n${result.content.substring(0, 1000)}\n${result.content.length > 1000 ? '...[truncated]' : ''}`);
+      }
+      
+      const parsed = parseJsonFromModel<{ findings: AIFinding[] }>(result.content);
+      
+      if (!parsed || typeof parsed !== 'object') {
+        throw new Error('Invalid response structure from Groq');
+      }
+      
+      if (nodeEnv === 'development') {
+        const findingsCount = Array.isArray(parsed.findings) ? parsed.findings.length : 0;
+        console.log(`[Batch ${batchIndex + 1}] ✓ Successfully parsed ${findingsCount} findings from Groq`);
+      }
+      
+      return Array.isArray(parsed.findings) ? parsed.findings : [];
+      
+    } catch (error) {
+      if (nodeEnv === 'development') {
+        console.error(`[Batch ${batchIndex + 1}] Groq fallback failed:`, error instanceof Error ? error.message : String(error));
+      }
+    }
+  }
+  
+  // PRODUCTION: Gracefully return empty array - static scan still works
+  if (nodeEnv === 'development') {
+    console.warn(`[Batch ${batchIndex + 1}] All AI providers failed. Last error:`, lastError?.message);
+  }
+  return [];
 }
 
 function calculateStrictScore(findings: VerifiedFinding[]): number {

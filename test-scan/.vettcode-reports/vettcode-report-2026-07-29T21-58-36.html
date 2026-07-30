@@ -1,83 +1,9 @@
-/**
- * HTML Report Generator
- * Generates a beautiful, detailed HTML report with AI explanations
- */
-
-import * as fs from 'fs';
-import * as path from 'path';
-import type { VettReport } from './types';
-
-export interface DetailedReportOptions {
-  outputDir?: string;
-  openInBrowser?: boolean;
-  includeAIExplanations?: boolean;
-  forUpload?: boolean; // If true, save to docs/reports for GitHub Pages
-  projectName?: string;
-}
-
-export function generateHTMLReport(
-  report: VettReport,
-  options: DetailedReportOptions = {}
-): string {
-  const {
-    outputDir = process.cwd(),
-    openInBrowser = true,
-    forUpload = false,
-    projectName,
-  } = options;
-
-  // Determine output directory
-  let reportsDir: string;
-  let filename: string;
-  
-  if (forUpload) {
-    // Save to docs/reports for GitHub Pages hosting
-    reportsDir = path.join(__dirname, '..', 'docs', 'reports');
-    const reportId = `report_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-    filename = `${reportId}.html`;
-  } else {
-    // Save to local .vettcode-reports directory
-    reportsDir = path.join(outputDir, '.vettcode-reports');
-    const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, -5);
-    filename = `vettcode-report-${timestamp}.html`;
-  }
-
-  // Create reports directory
-  if (!fs.existsSync(reportsDir)) {
-    fs.mkdirSync(reportsDir, { recursive: true });
-  }
-
-  const filepath = path.join(reportsDir, filename);
-
-  // Generate HTML content
-  const html = generateHTMLContent(report);
-  
-  // Write file
-  fs.writeFileSync(filepath, html, 'utf-8');
-
-  // Update manifest if uploading
-  if (forUpload) {
-    updateReportsManifest(filename, projectName || 'Security Scan', reportsDir);
-  }
-
-  // Open in browser if requested
-  if (openInBrowser && !forUpload) {
-    openInDefaultBrowser(filepath);
-  }
-
-  return filepath;
-}
-
-function generateHTMLContent(report: VettReport): string {
-  const scoreColor = getScoreColor(report.score);
-  const severityCounts = getSeverityCounts(report);
-
-  return `<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>VettCode Report - ${report.metadata?.projectName || 'Scan Results'}</title>
+  <title>VettCode Report - test-scan</title>
   <style>
     * {
       margin: 0;
@@ -146,7 +72,7 @@ function generateHTMLContent(report: VettReport): string {
       height: 200px;
       margin: 0 auto 20px;
       border-radius: 50%;
-      background: ${scoreColor};
+      background: #ffc107;
       display: flex;
       align-items: center;
       justify-content: center;
@@ -165,7 +91,7 @@ function generateHTMLContent(report: VettReport): string {
     .score-value {
       font-size: 4em;
       font-weight: bold;
-      color: ${scoreColor};
+      color: #ffc107;
       position: relative;
       z-index: 1;
     }
@@ -399,17 +325,17 @@ function generateHTMLContent(report: VettReport): string {
         <div class="logo">[V]</div>
         VettCode Security Report
       </h1>
-      <p>${report.metadata?.projectName || 'Code Security Analysis'}</p>
-      <p style="font-size: 0.9em; opacity: 0.8;">Generated on ${new Date(report.metadata?.scannedAt || Date.now()).toLocaleString()}</p>
+      <p>test-scan</p>
+      <p style="font-size: 0.9em; opacity: 0.8;">Generated on 30/07/2026, 00:58:36</p>
     </div>
 
     <!-- Score Section -->
     <div class="score-section">
       <div class="score-circle">
-        <div class="score-value">${report.score}</div>
+        <div class="score-value">76</div>
       </div>
-      <div class="grade">Grade: ${report.grade}</div>
-      <p style="margin-top: 15px; color: #666;">${report.summary}</p>
+      <div class="grade">Grade: B</div>
+      <p style="margin-top: 15px; color: #666;">Analyzed 1 files (8 lines). Found 4 verified issues.</p>
     </div>
 
     <!-- Content -->
@@ -418,7 +344,7 @@ function generateHTMLContent(report: VettReport): string {
       <div class="section">
         <h2 class="section-title">Executive Verdict</h2>
         <div class="verdict">
-          <p>${report.executiveVerdict}</p>
+          <p>CRITICAL: 2 critical security vulnerabilities detected. This codebase is NOT production-ready. Immediate remediation required.</p>
         </div>
       </div>
 
@@ -428,70 +354,136 @@ function generateHTMLContent(report: VettReport): string {
         <div class="severity-grid">
           <div class="severity-card critical">
             <div class="severity-label">Critical</div>
-            <div class="severity-count">${severityCounts.critical}</div>
+            <div class="severity-count">2</div>
           </div>
           <div class="severity-card high">
             <div class="severity-label">High</div>
-            <div class="severity-count">${severityCounts.high}</div>
+            <div class="severity-count">0</div>
           </div>
           <div class="severity-card medium">
             <div class="severity-label">Medium</div>
-            <div class="severity-count">${severityCounts.medium}</div>
+            <div class="severity-count">0</div>
           </div>
           <div class="severity-card low">
             <div class="severity-label">Low</div>
-            <div class="severity-count">${severityCounts.low}</div>
+            <div class="severity-count">2</div>
           </div>
         </div>
       </div>
 
-      ${report.criticalBlockers && report.criticalBlockers.length > 0 ? `
+      
       <!-- Critical Blockers -->
       <div class="section">
         <h2 class="section-title">⚠️ Critical Blockers</h2>
         <ul class="blockers-list">
-          ${report.criticalBlockers.map(blocker => `<li>${blocker}</li>`).join('')}
+          <li>Use of eval() in vulnerable.js:7</li><li>SQL Injection in WHERE Clause in vulnerable.js:2</li>
         </ul>
       </div>
-      ` : ''}
+      
 
-      ${report.strengths && report.strengths.length > 0 ? `
+      
       <!-- Strengths -->
       <div class="section">
         <h2 class="section-title">✓ Strengths</h2>
         <ul class="strengths-list">
-          ${report.strengths.map(strength => `<li>${strength}</li>`).join('')}
+          <li>Good error handling practices</li>
         </ul>
       </div>
-      ` : ''}
+      
 
       <!-- Detailed Findings -->
       <div class="section">
-        <h2 class="section-title">Detailed Findings (${report.findings.length})</h2>
+        <h2 class="section-title">Detailed Findings (4)</h2>
         <div class="findings-list">
-          ${report.findings.map(finding => `
+          
             <div class="finding">
               <div class="finding-header">
-                <span class="severity-badge ${finding.severity}">${finding.severity}</span>
-                <div class="finding-title">${finding.title}</div>
+                <span class="severity-badge critical">critical</span>
+                <div class="finding-title">Use of eval()</div>
               </div>
-              ${finding.file ? `<div class="finding-location">${finding.file}:${finding.line || 0}</div>` : ''}
-              <div class="finding-description">${finding.description}</div>
-              ${finding.evidence ? `
-                <div class="finding-evidence"><code>${escapeHtml(finding.evidence)}</code></div>
-              ` : ''}
+              <div class="finding-location">vulnerable.js:7</div>
+              <div class="finding-description">eval() can execute arbitrary code and is a major security risk</div>
+              
+                <div class="finding-evidence"><code>eval(userInput);</code></div>
+              
               <div class="finding-actions">
                 <div class="action-box mitigation">
                   <div class="action-title">🔧 Mitigation</div>
-                  <div>${finding.mitigation}</div>
+                  <div>Review and fix the identified issue following security best practices</div>
                 </div>
                 <div class="action-box prevention">
                   <div class="action-title">🛡️ Prevention</div>
-                  <div>${finding.prevention}</div>
+                  <div>Implement security best practices and code review processes to prevent similar issues</div>
                 </div>
               </div>
             </div>
-          `).join('')}
+          
+            <div class="finding">
+              <div class="finding-header">
+                <span class="severity-badge low">low</span>
+                <div class="finding-title">Query May Need Index</div>
+              </div>
+              <div class="finding-location">vulnerable.js:2</div>
+              <div class="finding-description">Frequent WHERE clauses should have corresponding database indexes</div>
+              
+                <div class="finding-evidence"><code>const query = &quot;SELECT * FROM users WHERE id=&quot; + userId;</code></div>
+              
+              <div class="finding-actions">
+                <div class="action-box mitigation">
+                  <div class="action-title">🔧 Mitigation</div>
+                  <div>Review and fix the identified issue following security best practices</div>
+                </div>
+                <div class="action-box prevention">
+                  <div class="action-title">🛡️ Prevention</div>
+                  <div>Implement security best practices and code review processes to prevent similar issues</div>
+                </div>
+              </div>
+            </div>
+          
+            <div class="finding">
+              <div class="finding-header">
+                <span class="severity-badge low">low</span>
+                <div class="finding-title">Missing Return Type Annotation</div>
+              </div>
+              <div class="finding-location">vulnerable.js:1</div>
+              <div class="finding-description">Functions should have explicit return type annotations in TypeScript</div>
+              
+                <div class="finding-evidence"><code>function getUserData(userId) {</code></div>
+              
+              <div class="finding-actions">
+                <div class="action-box mitigation">
+                  <div class="action-title">🔧 Mitigation</div>
+                  <div>Review and fix the identified issue following security best practices</div>
+                </div>
+                <div class="action-box prevention">
+                  <div class="action-title">🛡️ Prevention</div>
+                  <div>Implement security best practices and code review processes to prevent similar issues</div>
+                </div>
+              </div>
+            </div>
+          
+            <div class="finding">
+              <div class="finding-header">
+                <span class="severity-badge critical">critical</span>
+                <div class="finding-title">SQL Injection in WHERE Clause</div>
+              </div>
+              <div class="finding-location">vulnerable.js:2</div>
+              <div class="finding-description">WHERE clause uses unsanitized user input</div>
+              
+                <div class="finding-evidence"><code>const query = &quot;SELECT * FROM users WHERE id=&quot; + userId;</code></div>
+              
+              <div class="finding-actions">
+                <div class="action-box mitigation">
+                  <div class="action-title">🔧 Mitigation</div>
+                  <div>Review and fix the identified issue following security best practices</div>
+                </div>
+                <div class="action-box prevention">
+                  <div class="action-title">🛡️ Prevention</div>
+                  <div>Implement security best practices and code review processes to prevent similar issues</div>
+                </div>
+              </div>
+            </div>
+          
         </div>
       </div>
 
@@ -501,34 +493,20 @@ function generateHTMLContent(report: VettReport): string {
         <div class="metadata">
           <div class="meta-item">
             <div class="meta-label">Files Scanned</div>
-            <div class="meta-value">${report.metadata?.filesScanned || 0}</div>
+            <div class="meta-value">1</div>
           </div>
           <div class="meta-item">
             <div class="meta-label">Lines Analyzed</div>
-            <div class="meta-value">${report.metadata?.linesScanned?.toLocaleString() || 0}</div>
+            <div class="meta-value">8</div>
           </div>
           <div class="meta-item">
             <div class="meta-label">Report Confidence</div>
-            <div class="meta-value">${report.metadata?.reportConfidence || 0}%</div>
+            <div class="meta-value">100%</div>
           </div>
           <div class="meta-item">
             <div class="meta-label">Scan Mode</div>
-            <div class="meta-value">${report.metadata?.aiFindings || report.metadata?.verifiedFindings ? 'AI-Enhanced' : 'Static Analysis'}</div>
+            <div class="meta-value">Static Analysis</div>
           </div>
-          ${(report.metadata?.staticFindings !== undefined || report.metadata?.aiFindings !== undefined || report.metadata?.verifiedFindings !== undefined) ? `
-          <div class="meta-item">
-            <div class="meta-label">Static Findings</div>
-            <div class="meta-value">${report.metadata?.staticFindings || 0}</div>
-          </div>
-          <div class="meta-item">
-            <div class="meta-label">AI Findings</div>
-            <div class="meta-value">${report.metadata?.aiFindings || 0}</div>
-          </div>
-          <div class="meta-item">
-            <div class="meta-label">Verified (Both)</div>
-            <div class="meta-value">${report.metadata?.verifiedFindings || 0}</div>
-          </div>
-          ` : ''}
         </div>
       </div>
     </div>
@@ -541,81 +519,4 @@ function generateHTMLContent(report: VettReport): string {
     </div>
   </div>
 </body>
-</html>`;
-}
-
-function getScoreColor(score: number): string {
-  if (score >= 80) return '#28a745';
-  if (score >= 60) return '#ffc107';
-  return '#dc3545';
-}
-
-function getSeverityCounts(report: VettReport) {
-  return {
-    critical: report.findings.filter(f => f.severity === 'critical').length,
-    high: report.findings.filter(f => f.severity === 'high').length,
-    medium: report.findings.filter(f => f.severity === 'medium').length,
-    low: report.findings.filter(f => f.severity === 'low').length,
-  };
-}
-
-function escapeHtml(text: string): string {
-  const map: Record<string, string> = {
-    '&': '&amp;',
-    '<': '&lt;',
-    '>': '&gt;',
-    '"': '&quot;',
-    "'": '&#039;'
-  };
-  return text.replace(/[&<>"']/g, m => map[m]);
-}
-
-function openInDefaultBrowser(filepath: string) {
-  const { exec } = require('child_process');
-  
-  // Convert to absolute path and URL format
-  const absolutePath = path.resolve(filepath);
-  
-  const command = process.platform === 'win32' 
-    ? `start "" "${absolutePath}"`
-    : process.platform === 'darwin'
-    ? `open "${absolutePath}"`
-    : `xdg-open "${absolutePath}"`;
-  
-  exec(command, (error: any) => {
-    if (error) {
-      console.error(`Failed to open browser: ${error.message}`);
-    }
-  });
-}
-
-/**
- * Update the reports manifest for GitHub Pages listing
- */
-function updateReportsManifest(filename: string, projectName: string, reportsDir: string): void {
-  try {
-    const manifestPath = path.join(reportsDir, 'index.json');
-    let reports: Array<{filename: string; projectName: string; timestamp: string}> = [];
-    
-    // Read existing manifest if it exists
-    if (fs.existsSync(manifestPath)) {
-      const manifestContent = fs.readFileSync(manifestPath, 'utf-8');
-      reports = JSON.parse(manifestContent);
-    }
-    
-    // Add new report
-    reports.unshift({
-      filename,
-      projectName,
-      timestamp: new Date().toISOString(),
-    });
-    
-    // Keep only last 50 reports
-    reports = reports.slice(0, 50);
-    
-    // Write updated manifest
-    fs.writeFileSync(manifestPath, JSON.stringify(reports, null, 2), 'utf-8');
-  } catch (error) {
-    console.error('Failed to update reports manifest:', error);
-  }
-}
+</html>

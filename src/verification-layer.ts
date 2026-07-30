@@ -566,14 +566,29 @@ export function deduplicateFindings(findings: VerifiedFinding[]): VerifiedFindin
     
     const existing = seen.get(key);
     if (existing) {
-      // Keep the one with higher confidence
-      if (finding.confidence === "high" && existing.confidence !== "high") {
-        seen.set(key, finding);
-      } else if (finding.verificationStatus === "confirmed" && existing.verificationStatus !== "confirmed") {
-        seen.set(key, finding);
-      }
       // Merge sources
-      existing.sources = [...new Set([...existing.sources, ...finding.sources])];
+      const mergedSources = [...new Set([...existing.sources, ...finding.sources])];
+      
+      // Determine best source tag: verified > ai > static
+      let bestSource: "static" | "ai" | "verified" = "static";
+      if (mergedSources.includes("static-analysis") && mergedSources.includes("ai-analysis")) {
+        bestSource = "verified"; // Both static and AI found it = verified
+      } else if (mergedSources.includes("ai-analysis")) {
+        bestSource = "ai";
+      } else {
+        bestSource = existing.source;
+      }
+      
+      // Keep the one with higher confidence, or prefer AI/verified over static
+      if (finding.confidence === "high" && existing.confidence !== "high") {
+        seen.set(key, { ...finding, sources: mergedSources, source: bestSource });
+      } else if (finding.verificationStatus === "confirmed" && existing.verificationStatus !== "confirmed") {
+        seen.set(key, { ...finding, sources: mergedSources, source: bestSource });
+      } else if (finding.source !== "static" && existing.source === "static") {
+        seen.set(key, { ...finding, sources: mergedSources, source: bestSource });
+      } else {
+        seen.set(key, { ...existing, sources: mergedSources, source: bestSource });
+      }
     } else {
       seen.set(key, finding);
     }
