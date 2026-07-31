@@ -61,10 +61,19 @@ export interface ReportUploadResponse {
  * Backend handles ImageKit credentials securely
  */
 export async function uploadReport(request: ReportUploadRequest): Promise<ReportUploadResponse> {
+  // Get auth token from config
+  const { getAuthToken } = await import('./auth/auth.service');
+  const token = await getAuthToken();
+  
+  if (!token) {
+    throw new Error('Not authenticated. Please run "vettcode login" first.');
+  }
+
   const response = await fetch(`${VETTCODE_API_URL}/reports/upload`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
+      'Authorization': `Bearer ${token}`,
     },
     body: JSON.stringify(request),
   });
