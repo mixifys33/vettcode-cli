@@ -17,6 +17,7 @@ import type { VettReport } from "./types";
 import * as dotenv from "dotenv";
 import { generateHTMLReport } from "./html-report-generator";
 import * as os from "os";
+import { AuthService } from "./auth/auth.service";
 
 // Load environment variables from multiple locations
 // Priority: CWD .env > Home ~/.vettcode.env > CLI install dir .env
@@ -45,6 +46,124 @@ program
   .description("AI-powered codebase security and quality scanner")
   .version(packageJson.version);
 
+// Login command
+program
+  .command("login")
+  .description("Authenticate with VettCode CLI")
+  .action(async () => {
+    try {
+      const authService = new AuthService();
+      
+      if (await authService.isAuthenticated()) {
+        const developer = await authService.getCurrentDeveloper();
+        console.log(chalk.yellow('\n  You are already logged in'));
+        console.log(chalk.gray(`  User: ${developer?.name || 'Unknown'}`));
+        console.log(chalk.gray('  Use "vettcode logout" to sign out\n'));
+        return;
+      }
+
+      await authService.login();
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      console.error(chalk.red(`\n  Login failed: ${errorMsg}\n`));
+      process.exit(1);
+    }
+  });
+
+// Signup command
+program
+  .command("signup")
+  .description("Create a new VettCode account")
+  .action(async () => {
+    try {
+      const authService = new AuthService();
+
+      if (await authService.isAuthenticated()) {
+        const developer = await authService.getCurrentDeveloper();
+        console.log(chalk.yellow('\n  You are already logged in'));
+        console.log(chalk.gray(`  User: ${developer?.name || 'Unknown'}`));
+        console.log(chalk.gray('  Use "vettcode logout" to sign out first\n'));
+        return;
+      }
+
+      await authService.signup();
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      console.error(chalk.red(`\n  Signup failed: ${errorMsg}\n`));
+      process.exit(1);
+    }
+  });
+
+// Logout command
+program
+  .command("logout")
+  .description("Log out from VettCode CLI")
+  .action(async () => {
+    try {
+      const authService = new AuthService();
+      
+      if (!(await authService.isAuthenticated())) {
+        console.log(chalk.yellow('\n  You are not logged in\n'));
+        return;
+      }
+
+      await authService.logout();
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      console.error(chalk.red(`\n  Logout failed: ${errorMsg}\n`));
+      process.exit(1);
+    }
+  });
+
+// Whoami command
+program
+  .command("whoami")
+  .description("Show current logged-in user")
+  .action(async () => {
+    try {
+      const authService = new AuthService();
+      
+      if (!(await authService.isAuthenticated())) {
+        console.log(chalk.red('\n  Not logged in'));
+        console.log(chalk.gray('  Use "vettcode login" to authenticate\n'));
+        return;
+      }
+
+      // Verify token is still valid
+      const isValid = await authService.verifyToken();
+      if (!isValid) {
+        console.log(chalk.red('\n  Your session has expired'));
+        console.log(chalk.gray('  Use "vettcode login" to authenticate again\n'));
+        return;
+      }
+
+      const developer = await authService.getCurrentDeveloper();
+
+      console.log('');
+      console.log(chalk.bold.cyan('═══════════════════════════════════════'));
+      console.log(chalk.bold.cyan('  Logged in as:'));
+      console.log(chalk.bold.cyan('═══════════════════════════════════════'));
+      console.log(chalk.white(`  Name:  ${chalk.bold(developer.name)}`));
+      console.log(chalk.white(`  Email: ${developer.email}`));
+      console.log(chalk.white(`  Plan:  ${developer.subscription?.plan || 'free'}`));
+      console.log(chalk.white(`  Role:  ${developer.role || 'developer'}`));
+      if (developer.scanStats) {
+        console.log(chalk.gray('\n  Scan Statistics:'));
+        console.log(chalk.gray(`  └─ Total Scans: ${developer.scanStats.totalScans || 0}`));
+        if (developer.scanStats.lastScanDate) {
+          const lastScan = new Date(developer.scanStats.lastScanDate).toLocaleDateString();
+          console.log(chalk.gray(`  └─ Last Scan: ${lastScan}`));
+        }
+      }
+      console.log(chalk.bold.cyan('═══════════════════════════════════════'));
+      console.log('');
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      console.error(chalk.red(`\n  Failed to fetch user info: ${errorMsg}\n`));
+      process.exit(1);
+    }
+  });
+
 program
   .argument("[directory]", "Directory to scan")
   .option("-o, --output <file>", "Output report to JSON file")
@@ -54,7 +173,13 @@ program
   .option("--no-ai", "Disable AI analysis (static only)")
   .option("--no-upload", "Skip uploading report to web (saves locally only)")
   .option("--api-url <url>", "Custom API URL for report upload (default: https://vettcodecli.vercel.app/api/reports/upload)")
+  .option("--verbose", "Show detailed internal logs (batches, API calls, models)")
   .addHelpText('after', `
+
+${chalk.bold.yellow('Authentication:')}
+  ${chalk.bold('vettcode login')}                       ${chalk.gray('# Login via browser (required for scans)')}
+  ${chalk.bold('vettcode logout')}                      ${chalk.gray('# Log out and clear session')}
+  ${chalk.bold('vettcode whoami')}                      ${chalk.gray('# Show current logged-in user')}
 
 Examples:
   ${chalk.bold.cyan('Basic Usage:')}
@@ -121,6 +246,38 @@ ${chalk.bold.cyan('Interactive TUI Mode:')}
 `)
   .action(async (directory: string | undefined, options) => {
     try {
+      // ============================================
+      // AUTHENTICATION CHECK (ALWAYS FIRST)
+      // ============================================
+      const authService = new AuthService();
+      const isAuthenticated = await authService.isAuthenticated();
+      
+      if (!isAuthenticated) {
+        console.log(chalk.bold.red('\n  🔒 Authentication Required'));
+        console.log(chalk.white('  You must be logged in to use VettCode CLI\n'));
+        console.log(chalk.cyan('  Quick Start:'));
+        console.log(chalk.white('  1. vettcode login   ') + chalk.gray('# Authenticate via browser'));
+        console.log(chalk.white('  2. vettcode .       ') + chalk.gray('# Scan current directory'));
+        console.log(chalk.white('  3. vettcode whoami  ') + chalk.gray('# Check login status\n'));
+        process.exit(1);
+      }
+
+      // Verify token is still valid
+      const isValid = await authService.verifyToken();
+      if (!isValid) {
+        console.log(chalk.bold.red('\n  ⚠️  Session Expired'));
+        console.log(chalk.white('  Your authentication session has expired\n'));
+        console.log(chalk.cyan('  Please log in again:'));
+        console.log(chalk.gray('  $ vettcode login\n'));
+        process.exit(1);
+      }
+
+      // Get developer info for display
+      const developer = await authService.getCurrentDeveloper();
+      if (developer) {
+        console.log(chalk.gray(`\n  👤 Logged in as: ${chalk.cyan(developer.name)}`));
+      }
+
       // Load environment variables from multiple locations
       // 1. Try to load from current working directory
       dotenv.config();
@@ -163,12 +320,16 @@ ${chalk.bold.cyan('Interactive TUI Mode:')}
         }
       }
 
-      console.log(chalk.bold.cyan("\n[+] VettCode CLI - Security Scanner\n"));
+      // Import display system
+      const { ScanDisplay } = await import('./display');
+      const display = new ScanDisplay(options.verbose || false);
+      
+      display.start();
 
       // Validate directory
       const resolvedPath = path.resolve(directory);
       if (!fs.existsSync(resolvedPath)) {
-        console.error(chalk.red(`[X] Error: Directory not found: ${directory}`));
+        display.error(`Directory not found: ${directory}`);
         process.exit(1);
       }
 
@@ -177,13 +338,13 @@ ${chalk.bold.cyan('Interactive TUI Mode:')}
         ? options.ignore.split(",").map((p: string) => p.trim())
         : undefined;
 
-      // Collect files
-      const collectSpinner = ora("Collecting files...").start();
+      // Stage 1: Collect files
+      display.startStage('collecting');
       const files = collectFiles(resolvedPath, ignorePatterns);
-      collectSpinner.succeed(`Collected ${files.length} files`);
+      display.completeStage(`Collected ${files.length} files`);
 
       if (files.length === 0) {
-        console.warn(chalk.yellow("[!] No code files found to scan"));
+        display.warn("No code files found to scan");
         process.exit(0);
       }
 
@@ -191,48 +352,76 @@ ${chalk.bold.cyan('Interactive TUI Mode:')}
       const scanMode = (options.mode === "deep" ? "deep" : "quick") as "quick" | "deep";
       const disableAI = options.ai === false; // --no-ai flag
 
-      // Run smart scan
-      const scanSpinner = ora("Running smart scan...").start();
-      
+      // Run smart scan with stage-based progress
       const { report, stats } = await runSmartScan(
         projectName,
         files,
         0,
         (phase, pct, detail) => {
-          scanSpinner.text = `${phase} (${pct}%)${detail ? ` - ${detail}` : ''}`;
+          // Map phases to stages
+          if (options.verbose) {
+            display.verbose(`${phase} (${pct}%) ${detail || ''}`);
+          }
+          
+          // Update current stage based on phase
+          if (phase.includes('Static analysis')) {
+            if (!display['currentStage'] || display['currentStage'] !== 'static_analysis') {
+              display.startStage('static_analysis');
+            }
+          } else if (phase.includes('AI review') || phase.includes('Deep analysis') || phase.includes('Enhanced Analysis')) {
+            if (!display['currentStage'] || display['currentStage'] !== 'deep_analysis') {
+              display.startStage('deep_analysis');
+            }
+          } else if (phase.includes('Verification')) {
+            if (!display['currentStage'] || display['currentStage'] !== 'validation') {
+              display.startStage('validation');
+            }
+          } else if (phase.includes('Report')) {
+            if (!display['currentStage'] || display['currentStage'] !== 'reporting') {
+              display.startStage('reporting');
+            }
+          }
         },
         scanMode,
         disableAI
       );
 
-      scanSpinner.succeed(`Scan complete: ${stats.verifiedFindings} verified issues found`);
+      // Complete final stage
+      if (display['currentStage']) {
+        display.completeStage();
+      }
 
-      // Display quick summary in terminal
-      displayQuickSummary(report);
+      // Display results using new display system
+      display.displayResults(report);
 
+      // Start reporting stage
+      display.startStage('reporting');
+      
       // Generate detailed HTML report (local copy)
-      console.log(chalk.cyan('\n  [*] Generating reports...'));
       const reportPath = generateHTMLReport(report, {
         outputDir: resolvedPath,
-        openInBrowser: false, // Don't open browser - use web URL instead
-        forUpload: false, // Always save locally
+        openInBrowser: false,
+        forUpload: false,
         projectName: projectName,
       });
       
-      console.log(chalk.green(`  [✓] Local report saved: ${reportPath}`));
+      display.completeStage('Report generation complete');
+      display.displayReportSaved(reportPath);
 
       // Always upload to web (unless --no-upload flag is set)
-      const shouldUpload = options.upload !== false; // Upload by default
+      const shouldUpload = options.upload !== false;
       
       if (shouldUpload) {
-        await uploadReportToLandingPage(report, projectName, scanMode, reportPath);
+        await uploadReportToLandingPage(report, projectName, scanMode, reportPath, display);
       } else {
-        // Only if user explicitly used --no-upload
         console.log(chalk.yellow(`\n  [!] Web upload disabled (--no-upload flag)`));
         console.log(chalk.cyan(`  [→] View local report:`));
         console.log(chalk.blue.underline(`  file:///${reportPath.replace(/\\/g, '/')}`));
         console.log();
       }
+      
+      // Cleanup display
+      display.cleanup();
 
       // Display full results if JSON flag
       if (options.json) {
@@ -253,7 +442,9 @@ ${chalk.bold.cyan('Interactive TUI Mode:')}
       }
 
     } catch (error) {
-      console.error(chalk.red(`\n[X] Error: ${error instanceof Error ? error.message : String(error)}`));
+      // Use display system if available, otherwise fallback to console
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      console.error(chalk.red(`\n[X] Error: ${errorMsg}`));
       process.exit(1);
     }
   });
@@ -547,7 +738,8 @@ async function uploadReportToLandingPage(
   report: VettReport,
   projectName: string,
   scanMode: "quick" | "deep",
-  localReportPath: string
+  localReportPath: string,
+  display: any
 ): Promise<void> {
   const uploadSpinner = ora("Uploading report...").start();
   
@@ -572,7 +764,7 @@ async function uploadReportToLandingPage(
     };
     
     // Upload through backend API (handles ImageKit securely)
-    uploadSpinner.text = "Uploading to backend...";
+    display.verbose("Uploading to backend API...");
     const uploadResult = await uploadReport({
       reportData,
       reportId,
@@ -581,21 +773,8 @@ async function uploadReportToLandingPage(
     
     uploadSpinner.succeed("Report uploaded successfully!");
     
-    console.log(chalk.green(`\n  ╔════════════════════════════════════════════════════════════════╗`));
-    console.log(chalk.green(`  ║`) + chalk.bold.cyan(`             📊 REPORT READY - VIEW ONLINE              `) + chalk.green(`║`));
-    console.log(chalk.green(`  ╚════════════════════════════════════════════════════════════════╝`));
-    
-    console.log(chalk.cyan.bold(`\n  🌐 Shareable URL:`));
-    console.log(chalk.white.bold(`     ${uploadResult.webUrl}`));
-    
-    console.log(chalk.gray(`\n  ✨ Features:`));
-    console.log(chalk.gray(`     • Interactive vulnerability viewer`));
-    console.log(chalk.gray(`     • AI assistant for security advice`));
-    console.log(chalk.gray(`     • Filter & search findings`));
-    console.log(chalk.gray(`     • Share with your team`));
-    
-    console.log(chalk.yellow(`\n  ⏱️  Expires: ${expiresAt.toLocaleDateString()} (4 days)`));
-    console.log(chalk.gray(`  📁 Local copy: ${localReportPath}\n`));
+    // Use display system for upload success
+    display.displayReportUploaded(uploadResult.webUrl, expiresAt, localReportPath);
 
   } catch (error) {
     uploadSpinner.fail("Upload failed");
@@ -607,15 +786,7 @@ async function uploadReportToLandingPage(
       errorMsg = 'Network error - check internet connection or firewall';
     }
     
-    console.error(chalk.red(`\n  [X] Error: ${errorMsg}`));
-    
-    console.log(chalk.yellow(`\n  [!] Don't worry - your report is saved locally:`));
-    console.log(chalk.cyan(`      ${localReportPath}`));
-    console.log(chalk.gray(`\n  Tips:`));
-    console.log(chalk.gray(`  • Check your internet connection`));
-    console.log(chalk.gray(`  • Try again later if backend is unavailable`));
-    console.log(chalk.gray(`  • Use --no-upload flag to skip web upload`));
-    console.log(chalk.gray(`  • View local report: file:///${localReportPath.replace(/\\/g, '/')}`));
-    console.log();
+    // Use display system for upload error
+    display.displayUploadError(`Report upload failed: ${errorMsg}`, localReportPath);
   }
 }
