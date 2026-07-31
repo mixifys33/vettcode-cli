@@ -62,8 +62,9 @@ export interface ReportUploadResponse {
  */
 export async function uploadReport(request: ReportUploadRequest): Promise<ReportUploadResponse> {
   // Get auth token from config
-  const { getAuthToken } = await import('./auth/auth.service');
-  const token = await getAuthToken();
+  const { TokenManager } = await import('./auth/token.manager');
+  const tokenManager = new TokenManager();
+  const token = await tokenManager.getToken();
   
   if (!token) {
     throw new Error('Not authenticated. Please run "vettcode login" first.');
