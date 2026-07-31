@@ -177,9 +177,16 @@ program
   .addHelpText('after', `
 
 ${chalk.bold.yellow('Authentication:')}
-  ${chalk.bold('vettcode login')}                       ${chalk.gray('# Login via browser (required for scans)')}
+  ${chalk.bold('vettcode login')}                       ${chalk.gray('# Login via browser (opens automatically)')}
+  ${chalk.bold('vettcode signup')}                      ${chalk.gray('# Create account via browser')}
   ${chalk.bold('vettcode logout')}                      ${chalk.gray('# Log out and clear session')}
   ${chalk.bold('vettcode whoami')}                      ${chalk.gray('# Show current logged-in user')}
+
+${chalk.bold.cyan('How Browser Auth Works:')}
+  1. Run ${chalk.bold('vettcode login')}
+  2. Browser opens automatically with a code
+  3. Login/approve in the browser
+  4. Return to terminal - you're authenticated!
 
 Examples:
   ${chalk.bold.cyan('Basic Usage:')}

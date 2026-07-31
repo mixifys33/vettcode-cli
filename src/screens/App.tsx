@@ -16,6 +16,7 @@ export const App: React.FC = () => {
   const [scanDirectory, setScanDirectory] = useState(process.cwd());
   const [scanMode, setScanMode] = useState<ScanMode>('quick');
   const [scanReport, setScanReport] = useState<any>(null);
+  const [uploadResult, setUploadResult] = useState<any>(null);
   const [aiEnabled, setAiEnabled] = useState(true);
   const { exit } = useApp();
 
@@ -175,8 +176,9 @@ export const App: React.FC = () => {
     }
   });
 
-  const handleScanComplete = (report: any) => {
+  const handleScanComplete = (report: any, uploadRes?: any) => {
     setScanReport(report);
+    setUploadResult(uploadRes || null);
     setScreen('results');
   };
 
@@ -212,6 +214,7 @@ export const App: React.FC = () => {
       return (
         <Results
           report={scanReport || { score: 0, grade: 'F', findings: [], criticalBlockers: [], strengths: [] }}
+          uploadResult={uploadResult}
           onBack={handleBack}
           onExport={handleExport}
         />

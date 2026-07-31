@@ -1,6 +1,23 @@
 import axios, { AxiosInstance } from 'axios';
 import { TokenManager } from './token.manager';
 
+interface DeviceAuthResponse {
+  success: boolean;
+  deviceCode: string;
+  userCode: string;
+  verificationUrl: string;
+  expiresIn: number;
+  interval: number;
+}
+
+interface DeviceAuthPollResponse {
+  success: boolean;
+  status: 'pending' | 'approved' | 'expired' | 'rejected';
+  token?: string;
+  developer?: any;
+  message?: string;
+}
+
 export class APIClient {
   public client: AxiosInstance;
   private tokenManager: TokenManager;
@@ -25,6 +42,16 @@ export class APIClient {
       }
       return config;
     });
+  }
+
+  async initiateDeviceAuth(): Promise<DeviceAuthResponse> {
+    const response = await this.client.post('/api/device-auth/initiate');
+    return response.data;
+  }
+
+  async pollDeviceAuth(deviceCode: string): Promise<DeviceAuthPollResponse> {
+    const response = await this.client.post('/api/device-auth/poll', { deviceCode });
+    return response.data;
   }
 
   async login(email: string, password: string): Promise<{ token: string; developer: any }> {

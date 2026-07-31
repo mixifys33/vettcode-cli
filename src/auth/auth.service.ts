@@ -1,6 +1,7 @@
 import ora from 'ora';
 import chalk from 'chalk';
 import * as readline from 'readline';
+import open from 'open';
 import { APIClient } from './api.client';
 import { TokenManager } from './token.manager';
 
@@ -66,26 +67,109 @@ export class AuthService {
     const spinner = ora();
 
     try {
-      const email = await this.prompt(chalk.white('  Email: '));
-      const password = await this.prompt(chalk.white('  Password: '), true);
+      // Step 1: Initiate device authentication
+      spinner.start('Initializing authentication...');
+      const deviceAuth = await this.api.initiateDeviceAuth();
+      spinner.succeed('Authentication initialized');
 
+      // Step 2: Display code and instructions
       console.log('');
-      spinner.start('Logging in...');
-
-      const result = await this.api.login(email, password);
-
-      await this.tokenManager.setToken(result.token, result.developer);
-      spinner.succeed(chalk.green('Login successful!'));
-
+      console.log(chalk.bold.white('  Please complete authentication in your browser'));
       console.log('');
-      console.log(chalk.white(`  Welcome back, ${chalk.bold.cyan(result.developer.name)}!`));
-      console.log(chalk.gray(`  Email: ${result.developer.email}`));
-      console.log(chalk.gray(`  Plan: ${result.developer.subscription?.plan || 'free'}`));
+      console.log(chalk.gray('  ┌─────────────────────────────────────────┐'));
+      console.log(chalk.gray('  │') + chalk.bold.cyan('  Your verification code:               ') + chalk.gray('│'));
+      console.log(chalk.gray('  │                                         │'));
+      console.log(chalk.gray('  │         ') + chalk.bold.yellow(deviceAuth.userCode) + chalk.gray('                    │'));
+      console.log(chalk.gray('  │                                         │'));
+      console.log(chalk.gray('  └─────────────────────────────────────────┘'));
       console.log('');
+      console.log(chalk.gray('  Opening browser for authentication...'));
+      console.log(chalk.gray(`  If browser doesn't open, visit: ${chalk.cyan(deviceAuth.verificationUrl)}`));
+      console.log('');
+
+      // Step 3: Open browser
+      try {
+        await open(deviceAuth.verificationUrl);
+      } catch (error) {
+        console.log(chalk.yellow('  Could not open browser automatically.'));
+        console.log(chalk.white('  Please open this URL manually:'));
+        console.log(chalk.cyan(`  ${deviceAuth.verificationUrl}`));
+        console.log('');
+      }
+
+      // Step 4: Poll for authentication
+      spinner.start('Waiting for authentication...');
+      
+      const pollInterval = deviceAuth.interval * 1000; // Convert to milliseconds
+      const maxAttempts = Math.floor((deviceAuth.expiresIn / deviceAuth.interval));
+      let attempts = 0;
+
+      const poll = async (): Promise<boolean> => {
+        attempts++;
+        
+        try {
+          const result = await this.api.pollDeviceAuth(deviceAuth.deviceCode);
+          
+          if (result.status === 'approved') {
+            // Authentication successful!
+            await this.tokenManager.setToken(result.token, result.developer);
+            spinner.succeed(chalk.green('Authentication successful! 🎉'));
+            
+            console.log('');
+            console.log(chalk.white(`  Welcome, ${chalk.bold.cyan(result.developer.name)}!`));
+            console.log(chalk.gray(`  Email: ${result.developer.email}`));
+            console.log(chalk.gray(`  Plan: ${result.developer.subscription?.plan || 'free'}`));
+            console.log('');
+            
+            return true;
+          }
+          
+          if (result.status === 'expired') {
+            spinner.fail('Code expired');
+            throw new Error('Authentication code expired. Please try again.');
+          }
+          
+          if (result.status === 'rejected') {
+            spinner.fail('Authentication rejected');
+            throw new Error('Authentication was rejected in browser.');
+          }
+          
+          // Still pending, continue polling
+          if (attempts >= maxAttempts) {
+            spinner.fail('Timeout');
+            throw new Error('Authentication timeout. Please try again.');
+          }
+          
+          // Update spinner with time remaining
+          const timeLeft = Math.floor((deviceAuth.expiresIn - (attempts * deviceAuth.interval)));
+          spinner.text = `Waiting for authentication... (${timeLeft}s remaining)`;
+          
+          await new Promise(resolve => setTimeout(resolve, pollInterval));
+          return poll();
+          
+        } catch (error: any) {
+          if (error.message && (error.message.includes('expired') || error.message.includes('rejected') || error.message.includes('timeout'))) {
+            throw error;
+          }
+          
+          // Network error or other issue, retry
+          if (attempts >= maxAttempts) {
+            spinner.fail('Timeout');
+            throw new Error('Authentication timeout. Please try again.');
+          }
+          
+          await new Promise(resolve => setTimeout(resolve, pollInterval));
+          return poll();
+        }
+      };
+
+      await poll();
+
     } catch (error: any) {
       spinner.fail('Login failed');
       const msg = error.response?.data?.message || error.message || 'Unknown error';
       console.error(chalk.red(`  Error: ${msg}`));
+      console.log('');
       throw error;
     }
   }
@@ -96,34 +180,29 @@ export class AuthService {
     console.log(chalk.bold.cyan('  ║        VettCode CLI - Sign Up          ║'));
     console.log(chalk.bold.cyan('  ╚════════════════════════════════════════╝'));
     console.log('');
-
-    const spinner = ora();
+    console.log(chalk.white('  Opening browser for account creation...'));
+    console.log('');
 
     try {
-      const name = await this.prompt(chalk.white('  Full Name: '));
-      const email = await this.prompt(chalk.white('  Email: '));
-      const password = await this.prompt(chalk.white('  Password (min 6 chars): '), true);
-      const confirmPassword = await this.prompt(chalk.white('  Confirm Password: '), true);
+      // Open browser to signup page
+      const signupUrl = 'https://vettcodecli.vercel.app/signup';
+      
+      try {
+        await open(signupUrl);
+        console.log(chalk.gray('  Browser opened successfully!'));
+      } catch (error) {
+        console.log(chalk.yellow('  Could not open browser automatically.'));
+        console.log(chalk.white('  Please open this URL manually:'));
+        console.log(chalk.cyan(`  ${signupUrl}`));
+      }
 
       console.log('');
-      spinner.start('Creating account...');
-
-      const result = await this.api.signup(name, email, password, confirmPassword);
-
-      await this.tokenManager.setToken(result.token, result.developer);
-      spinner.succeed(chalk.green('Account created successfully!'));
-
-      console.log('');
-      console.log(chalk.white(`  Welcome, ${chalk.bold.cyan(result.developer.name)}!`));
-      console.log(chalk.gray(`  Email: ${result.developer.email}`));
-      console.log(chalk.gray(`  Plan: ${result.developer.subscription?.plan || 'free'}`));
-      console.log('');
-      console.log(chalk.gray('  You are now logged in to VettCode CLI'));
+      console.log(chalk.gray('  After creating your account:'));
+      console.log(chalk.white('  1. Complete signup in the browser'));
+      console.log(chalk.white('  2. Run ') + chalk.cyan('vettcode login') + chalk.white(' to authenticate'));
       console.log('');
     } catch (error: any) {
-      spinner.fail('Signup failed');
-      const msg = error.response?.data?.message || error.message || 'Unknown error';
-      console.error(chalk.red(`  Error: ${msg}`));
+      console.error(chalk.red(`  Error: ${error.message || 'Unknown error'}`));
       throw error;
     }
   }

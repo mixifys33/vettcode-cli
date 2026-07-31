@@ -333,14 +333,8 @@ Now analyze the code:`;
     { role: "system" as const, content: systemPrompt },
     { role: "user" as const, content: prompt }
   ];
-
-  const nodeEnv = process.env.NODE_ENV?.trim() || 'production';
   
   try {
-    if (nodeEnv === 'development') {
-      console.log(`[Batch ${batchIndex + 1}] Calling backend API for analysis...`);
-    }
-    
     // Call backend API instead of direct OpenRouter/Groq calls
     const response = await analyzeWithAI({
       messages,
@@ -348,19 +342,9 @@ Now analyze the code:`;
       projectName,
     });
     
-    if (nodeEnv === 'development') {
-      console.log(`[Batch ${batchIndex + 1}] ✓ Got ${response.findings.length} findings from ${response.provider} (${response.model})`);
-    }
-    
     return response.findings || [];
     
   } catch (error) {
-    const errorMsg = error instanceof Error ? error.message : String(error);
-    
-    if (nodeEnv === 'development') {
-      console.error(`[Batch ${batchIndex + 1}] Backend API failed:`, errorMsg);
-    }
-    
     // Gracefully return empty array - static scan still works
     return [];
   }
