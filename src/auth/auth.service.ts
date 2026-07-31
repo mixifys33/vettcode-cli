@@ -1,4 +1,3 @@
-import open from 'open';
 import ora from 'ora';
 import chalk from 'chalk';
 import * as readline from 'readline';
