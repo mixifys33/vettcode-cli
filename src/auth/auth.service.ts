@@ -180,29 +180,119 @@ export class AuthService {
     console.log(chalk.bold.cyan('  ║        VettCode CLI - Sign Up          ║'));
     console.log(chalk.bold.cyan('  ╚════════════════════════════════════════╝'));
     console.log('');
-    console.log(chalk.white('  Opening browser for account creation...'));
-    console.log('');
+
+    const spinner = ora();
 
     try {
-      // Open browser to signup page
-      const signupUrl = 'https://vettcodecli.vercel.app/signup';
+      // Step 1: Initiate device authentication
+      spinner.start('Initializing signup...');
+      const deviceAuth = await this.api.initiateDeviceAuth();
+      spinner.succeed('Signup initialized');
+
+      // Step 2: Display code and instructions
+      console.log('');
+      console.log(chalk.bold.white('  Complete signup in your browser'));
+      console.log('');
+      console.log(chalk.gray('  ┌─────────────────────────────────────────┐'));
+      console.log(chalk.gray('  │') + chalk.bold.cyan('  Your verification code:               ') + chalk.gray('│'));
+      console.log(chalk.gray('  │                                         │'));
+      console.log(chalk.gray('  │         ') + chalk.bold.yellow(deviceAuth.userCode) + chalk.gray('                    │'));
+      console.log(chalk.gray('  │                                         │'));
+      console.log(chalk.gray('  └─────────────────────────────────────────┘'));
+      console.log('');
+      console.log(chalk.gray('  Opening browser to create account...'));
       
+      // Modify URL to go to signup page with redirect
+      const signupUrl = deviceAuth.verificationUrl.replace('/cli-auth', '/signup');
+      const finalUrl = `${signupUrl}&redirect=${encodeURIComponent('/cli-auth?code=' + deviceAuth.userCode)}`;
+      
+      console.log(chalk.gray(`  If browser doesn't open, visit: ${chalk.cyan(signupUrl)}`));
+      console.log(chalk.gray(`  Then return to: ${chalk.cyan(deviceAuth.verificationUrl)}`));
+      console.log('');
+
+      // Step 3: Open browser to signup page
       try {
-        await open(signupUrl);
-        console.log(chalk.gray('  Browser opened successfully!'));
+        await open(finalUrl);
       } catch (error) {
         console.log(chalk.yellow('  Could not open browser automatically.'));
-        console.log(chalk.white('  Please open this URL manually:'));
-        console.log(chalk.cyan(`  ${signupUrl}`));
+        console.log(chalk.white('  Please:'));
+        console.log(chalk.cyan(`  1. Create account at: ${signupUrl.split('?')[0]}`));
+        console.log(chalk.cyan(`  2. Then visit: ${deviceAuth.verificationUrl}`));
+        console.log('');
       }
 
-      console.log('');
-      console.log(chalk.gray('  After creating your account:'));
-      console.log(chalk.white('  1. Complete signup in the browser'));
-      console.log(chalk.white('  2. Run ') + chalk.cyan('vettcode login') + chalk.white(' to authenticate'));
-      console.log('');
+      // Step 4: Poll for authentication (same as login)
+      spinner.start('Waiting for signup and authorization...');
+      
+      const pollInterval = deviceAuth.interval * 1000;
+      const maxAttempts = Math.floor((deviceAuth.expiresIn / deviceAuth.interval));
+      let attempts = 0;
+
+      const poll = async (): Promise<boolean> => {
+        attempts++;
+        
+        try {
+          const result = await this.api.pollDeviceAuth(deviceAuth.deviceCode);
+          
+          if (result.status === 'approved') {
+            await this.tokenManager.setToken(result.token, result.developer);
+            spinner.succeed(chalk.green('Account created and authenticated! 🎉'));
+            
+            console.log('');
+            console.log(chalk.white(`  Welcome to VettCode, ${chalk.bold.cyan(result.developer.name)}!`));
+            console.log(chalk.gray(`  Email: ${result.developer.email}`));
+            console.log(chalk.gray(`  Plan: ${result.developer.subscription?.plan || 'free'}`));
+            console.log('');
+            console.log(chalk.gray('  You can now start scanning your code!'));
+            console.log(chalk.white('  Try: ') + chalk.cyan('vettcode .'));
+            console.log('');
+            
+            return true;
+          }
+          
+          if (result.status === 'expired') {
+            spinner.fail('Code expired');
+            throw new Error('Verification code expired. Please try again.');
+          }
+          
+          if (result.status === 'rejected') {
+            spinner.fail('Authorization rejected');
+            throw new Error('Authorization was rejected in browser.');
+          }
+          
+          if (attempts >= maxAttempts) {
+            spinner.fail('Timeout');
+            throw new Error('Signup timeout. Please try again.');
+          }
+          
+          const timeLeft = Math.floor((deviceAuth.expiresIn - (attempts * deviceAuth.interval)));
+          spinner.text = `Waiting for signup and authorization... (${timeLeft}s remaining)`;
+          
+          await new Promise(resolve => setTimeout(resolve, pollInterval));
+          return poll();
+          
+        } catch (error: any) {
+          if (error.message && (error.message.includes('expired') || error.message.includes('rejected') || error.message.includes('timeout'))) {
+            throw error;
+          }
+          
+          if (attempts >= maxAttempts) {
+            spinner.fail('Timeout');
+            throw new Error('Signup timeout. Please try again.');
+          }
+          
+          await new Promise(resolve => setTimeout(resolve, pollInterval));
+          return poll();
+        }
+      };
+
+      await poll();
+
     } catch (error: any) {
-      console.error(chalk.red(`  Error: ${error.message || 'Unknown error'}`));
+      spinner.fail('Signup failed');
+      const msg = error.response?.data?.message || error.message || 'Unknown error';
+      console.error(chalk.red(`  Error: ${msg}`));
+      console.log('');
       throw error;
     }
   }
