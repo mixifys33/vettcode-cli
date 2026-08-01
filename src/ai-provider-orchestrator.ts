@@ -152,6 +152,7 @@ export class AIProviderOrchestrator {
 
   /**
    * Get provider order based on configuration
+   * Backend is DEFAULT - Ollama is optional alternative
    */
   private getProviderOrder(): AIProvider[] {
     const { preferredProvider, enableFallback } = this.config;
@@ -162,10 +163,13 @@ export class AIProviderOrchestrator {
 
     // Build fallback chain
     if (preferredProvider === 'ollama') {
+      // User explicitly chose Ollama - fallback to backend if unavailable
       return ['ollama', 'backend'];
     } else if (preferredProvider === 'backend') {
-      return ['backend', 'ollama'];
+      // Default case - backend only (no ollama fallback unless user opted in)
+      return ['backend'];
     } else {
+      // No AI
       return ['none'];
     }
   }

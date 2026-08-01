@@ -1,7 +1,7 @@
 /**
  * CLI Scan Orchestrator
- * Adapts the smart scan orchestrator for CLI use without web API calls
- * Uses OpenRouter client directly for AI analysis
+ * Adapts the smart scan orchestrator for CLI use
+ * NEW: Supports Ollama local AI and multi-provider fallback
  */
 
 import { runStaticAnalysis, runEnhancedStaticAnalysis, type StaticFinding } from "./static-analyzer";
@@ -9,8 +9,9 @@ import { extractHighRiskCode, shouldAnalyzeFile, type ExtractedCode } from "./as
 import { verifyFindings, deduplicateFindings, calculateReportConfidence, type AIFinding, type VerifiedFinding } from "./verification-layer";
 import { selectFilesForQuickScan } from "./scan-priority";
 import type { CodeFile, VettReport } from "./types";
-import { getAnalysisPrompt } from "./prompts";
-import { analyzeWithAI } from "./api-client";
+import { getAnalysisPrompt, BATCH_SYSTEM_PROMPT } from "./prompts";
+import { getAIOrchestrator, type AIProvider } from "./ai-provider-orchestrator";
+import { getAIProviderConfig } from "./config";
 import { generateBlueprint, type Blueprint } from "./blueprint";
 
 // Global flags for user-facing messages
@@ -30,6 +31,7 @@ export interface ScanProgress {
 export interface SmartScanResult {
   report: VettReport;
   blueprint?: Blueprint;
+  aiProvider?: AIProvider; // Track which provider was used
   stats: {
     filesScanned: number;
     linesScanned: number;
@@ -38,6 +40,7 @@ export interface SmartScanResult {
     verifiedFindings: number;
     falsePositives: number;
     tokensSaved: string;
+    aiProvider?: AIProvider;
   };
 }
 
@@ -102,9 +105,10 @@ export async function runSmartScan(
 
   onProgress("Code extraction", 45, `${extractedSections.length} high-risk regions · ${tokenReduction}% token reduction`);
 
-  // Phase 3: AI Analysis (direct OpenRouter calls) or skip if disabled
+  // Phase 3: AI Analysis (using AI Provider Orchestrator) or skip if disabled
   let aiFindings: AIFinding[] = [];
   let aiUsed = false;
+  let aiProvider: AIProvider = 'none';
   
   if (disableAI) {
     // Skip AI analysis - use enhanced static analysis only
@@ -128,18 +132,58 @@ export async function runSmartScan(
     aiUsed = false;
     onProgress("Enhanced Analysis", 75, `${aiFindings.length} issues found (static analysis only)`);
   } else {
-    // Run AI analysis
+    // Initialize AI orchestrator with user config
+    const providerConfig = getAIProviderConfig();
+    const orchestrator = getAIOrchestrator(providerConfig);
+    
+    // Initialize providers (check availability)
+    await orchestrator.initialize((msg) => {
+      onProgress("AI Setup", 48, msg);
+    });
+    
+    // Run AI analysis with automatic provider selection and fallback
     onProgress("AI review", 50, "Analyzing extracted code with AI…");
     
     try {
-      aiFindings = await runAIAnalysisCLI(projectName, extractedSections, staticFindings, onProgress, mode);
-      aiUsed = true;
-    } catch (error) {
-      // Run ENHANCED static analysis as fallback (silently for TUI)
-      onProgress("Enhanced Analysis", 50, "AI unavailable - running comprehensive static analysis");
+      const result = await runAIAnalysisWithOrchestrator(
+        orchestrator,
+        projectName,
+        extractedSections,
+        staticFindings,
+        onProgress,
+        mode
+      );
       
-      // Run ENHANCED static analysis as fallback
-      onProgress("Enhanced Analysis", 50, "AI unavailable - running comprehensive static analysis (85% coverage)");
+      aiFindings = result.findings;
+      aiProvider = result.provider;
+      aiUsed = result.provider !== 'none';
+      
+      if (aiUsed) {
+        const providerLabel = aiProvider === 'ollama' ? 'Ollama (local)' : 'Backend API';
+        onProgress("AI review", 75, `${aiFindings.length} findings via ${providerLabel}`);
+      } else {
+        // Fallback to enhanced static
+        onProgress("Enhanced Analysis", 50, "AI unavailable - running comprehensive static analysis");
+        const enhancedResult = runEnhancedStaticAnalysis(files);
+        
+        aiFindings = enhancedResult.findings.map(f => ({
+          id: f.id,
+          severity: f.severity,
+          category: f.category,
+          title: f.title,
+          description: f.description,
+          file: f.file,
+          line: f.line,
+          evidence: f.evidence,
+          mitigation: generateMitigation(f),
+          prevention: generatePrevention(f),
+        }));
+        
+        onProgress("Enhanced Analysis", 75, `${aiFindings.length} issues found (static only)`);
+      }
+    } catch (error) {
+      // Final fallback to enhanced static analysis
+      onProgress("Enhanced Analysis", 50, "AI failed - using comprehensive static analysis");
       
       const enhancedResult = runEnhancedStaticAnalysis(files);
       
@@ -157,11 +201,9 @@ export async function runSmartScan(
       }));
       
       aiUsed = false;
-      onProgress("Enhanced Analysis", 75, `${aiFindings.length} issues found (${enhancedResult.stats.dataFlowVulnerabilities} data flow, ${enhancedResult.stats.controlFlowIssues} control flow)`);
+      onProgress("Enhanced Analysis", 75, `${aiFindings.length} issues found (enhanced static)`);
     }
   }
-
-  onProgress(aiUsed ? "AI review" : "Enhanced Analysis", 75, `${aiFindings.length} additional findings`);
 
   // Phase 4: Verification Layer
   onProgress("Verification", 80, "Cross-checking findings…");
@@ -249,39 +291,91 @@ export async function runSmartScan(
     verifiedFindings: deduplicated.length,
     falsePositives: verificationResult.summary.falsePositives,
     tokensSaved: `${tokenReduction}% (${Math.round((totalOriginalChars - totalExtractedChars) / 1000)}K chars)`,
+    aiProvider,
   };
 
-  return { report, blueprint, stats };
+  return { report, blueprint, stats, aiProvider };
 }
 
-async function runAIAnalysisCLI(
+/**
+ * Run AI analysis using the AI Provider Orchestrator
+ * Supports Ollama (local), Backend API, with automatic fallback
+ */
+async function runAIAnalysisWithOrchestrator(
+  orchestrator: any,
   projectName: string,
   extractedSections: ExtractedCode[],
   staticFindings: StaticFinding[],
   onProgress: (phase: string, pct: number, detail?: string) => void,
   mode: ScanMode
-): Promise<AIFinding[]> {
+): Promise<{ findings: AIFinding[]; provider: AIProvider }> {
   if (extractedSections.length === 0 && staticFindings.length === 0) {
-    return [];
+    return { findings: [], provider: 'none' };
   }
 
   const aiFindings: AIFinding[] = [];
   const batchSize = mode === "quick" ? 3 : 5;
   const batches = createBatches(extractedSections, staticFindings, batchSize);
+  let usedProvider: AIProvider = 'none';
 
   for (let i = 0; i < batches.length; i++) {
     const progressPct = 50 + Math.round(((i + 1) / batches.length) * 25);
     onProgress("AI review", progressPct, `Processing batch ${i + 1}/${batches.length}…`);
 
     try {
-      const findings = await analyzeBatchWithBackend(projectName, batches[i], i);
-      aiFindings.push(...findings);
+      const result = await analyzeBatchWithOrchestrator(
+        orchestrator,
+        projectName,
+        batches[i],
+        i,
+        (msg) => onProgress("AI review", progressPct, msg)
+      );
+      
+      aiFindings.push(...result.findings);
+      usedProvider = result.provider;
     } catch (error) {
       console.warn(`Batch ${i + 1} failed, continuing...`);
     }
   }
 
-  return aiFindings;
+  return { findings: aiFindings, provider: usedProvider };
+}
+
+/**
+ * Analyze a single batch using the AI Provider Orchestrator
+ */
+async function analyzeBatchWithOrchestrator(
+  orchestrator: any,
+  projectName: string,
+  batch: Batch,
+  batchIndex: number,
+  onProgress?: (message: string) => void
+): Promise<{ findings: AIFinding[]; provider: AIProvider }> {
+  const prompt = getAnalysisPrompt(projectName, batch, batchIndex);
+  
+  const messages = [
+    { role: "system" as const, content: BATCH_SYSTEM_PROMPT },
+    { role: "user" as const, content: prompt }
+  ];
+  
+  // Use orchestrator to analyze with automatic provider selection
+  const result = await orchestrator.analyze(
+    {
+      messages,
+      batchIndex,
+      projectName,
+    },
+    onProgress
+  );
+  
+  if (!result.response) {
+    return { findings: [], provider: result.provider };
+  }
+  
+  return {
+    findings: result.response.findings || [],
+    provider: result.provider,
+  };
 }
 
 interface Batch {

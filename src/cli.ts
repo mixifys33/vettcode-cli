@@ -164,6 +164,146 @@ program
     }
   });
 
+// Ollama setup command (NEW)
+program
+  .command("setup-ollama")
+  .description("Download and setup Ollama local AI model")
+  .action(async () => {
+    const { getOllamaProvider, OllamaProvider } = await import("./ollama-provider");
+    const ollamaProvider = getOllamaProvider();
+    
+    console.log(chalk.bold.cyan('\n╔════════════════════════════════════════╗'));
+    console.log(chalk.bold.cyan('║  VettCode Ollama Setup                 ║'));
+    console.log(chalk.bold.cyan('╚════════════════════════════════════════╝\n'));
+    
+    // Check if Ollama is installed
+    const spinner = ora('Checking for Ollama installation...').start();
+    const available = await ollamaProvider.checkAvailability();
+    
+    if (!available) {
+      spinner.fail('Ollama not found');
+      console.log(chalk.yellow('\n  Ollama is not installed on your system.\n'));
+      console.log(chalk.white('  Please install Ollama first:'));
+      console.log(chalk.gray('\n' + OllamaProvider.getInstallInstructions()));
+      console.log('');
+      process.exit(1);
+    }
+    
+    spinner.succeed('Ollama is installed');
+    
+    // Check if model exists
+    const modelSpinner = ora('Checking for qwen2.5-coder:1.5b model...').start();
+    const modelExists = await ollamaProvider.checkModelExists();
+    
+    if (modelExists) {
+      modelSpinner.succeed('Model already downloaded');
+      console.log(chalk.green('\n  ✓ Ollama is ready to use!'));
+      console.log(chalk.gray('  Set AI_PROVIDER=ollama in .env to use local AI\n'));
+      return;
+    }
+    
+    modelSpinner.info('Model not found - downloading now');
+    
+    // Download model
+    console.log(chalk.yellow('\n  Downloading qwen2.5-coder:1.5b-instruct (~1-2GB)'));
+    console.log(chalk.gray('  This may take a few minutes depending on your connection...\n'));
+    
+    const downloadSpinner = ora('Downloading model...').start();
+    let lastPercent = 0;
+    
+    const success = await ollamaProvider.ensureModel((status, percent) => {
+      if (percent !== undefined && percent !== lastPercent) {
+        downloadSpinner.text = `Downloading model... ${percent}%`;
+        lastPercent = percent;
+      } else {
+        downloadSpinner.text = status;
+      }
+    });
+    
+    if (success) {
+      downloadSpinner.succeed('Model downloaded successfully');
+      console.log(chalk.green('\n  ✓ Ollama setup complete!'));
+      console.log(chalk.gray('\n  To use Ollama for scanning:'));
+      console.log(chalk.white('  1. Set AI_PROVIDER=ollama in your .env file'));
+      console.log(chalk.white('  2. Run: vettcode scan'));
+      console.log('');
+    } else {
+      downloadSpinner.fail('Failed to download model');
+      console.log(chalk.red('\n  Model download failed. Please try again.\n'));
+      process.exit(1);
+    }
+  });
+
+// AI provider status command (NEW)
+program
+  .command("ai-status")
+  .description("Show status of AI providers (Ollama, Backend)")
+  .action(async () => {
+    const { getAIOrchestrator } = await import("./ai-provider-orchestrator");
+    const { getAIProviderConfig } = await import("./config");
+    
+    console.log(chalk.bold.cyan('\n╔════════════════════════════════════════╗'));
+    console.log(chalk.bold.cyan('║  AI Provider Status                    ║'));
+    console.log(chalk.bold.cyan('╚════════════════════════════════════════╝\n'));
+    
+    const config = getAIProviderConfig();
+    const orchestrator = getAIOrchestrator(config);
+    
+    const spinner = ora('Checking providers...').start();
+    await orchestrator.initialize();
+    const status = await orchestrator.getProvidersStatus();
+    spinner.stop();
+    
+    // Ollama status
+    console.log(chalk.bold.white('  Ollama (Local AI):'));
+    if (status.ollama.available) {
+      console.log(chalk.green('    ✓ Installed and running'));
+      console.log(chalk.gray(`    Host: ${status.ollama.host}`));
+      
+      if (status.ollama.modelPulled) {
+        console.log(chalk.green(`    ✓ Model ready: ${status.ollama.model}`));
+      } else {
+        console.log(chalk.yellow(`    ⚠ Model not downloaded`));
+        console.log(chalk.gray(`    Run: vettcode setup-ollama`));
+      }
+    } else {
+      console.log(chalk.red('    ✗ Not installed'));
+      console.log(chalk.gray('    Install from: https://ollama.com'));
+    }
+    
+    // Backend status
+    console.log(chalk.bold.white('\n  Backend API:'));
+    console.log(chalk.green('    ✓ Available'));
+    console.log(chalk.gray(`    Endpoint: ${status.backend.endpoint}`));
+    
+    // Current configuration
+    console.log(chalk.bold.white('\n  Current Configuration:'));
+    console.log(chalk.white(`    Preferred: ${status.preferred}`));
+    
+    const providerLabel = {
+      'ollama': 'Ollama (local, offline)',
+      'backend': 'Backend API (cloud)',
+      'none': 'No AI (static only)'
+    }[status.preferred];
+    
+    console.log(chalk.gray(`    (${providerLabel})`));
+    
+    // Recommendations
+    console.log(chalk.bold.white('\n  Recommendations:'));
+    if (status.preferred === 'ollama' && !status.ollama.modelPulled) {
+      console.log(chalk.yellow('    ⚠ Run: vettcode setup-ollama'));
+    } else if (status.preferred === 'ollama' && status.ollama.modelPulled) {
+      console.log(chalk.green('    ✓ Ready for offline AI scanning'));
+    } else if (status.preferred === 'backend') {
+      console.log(chalk.cyan('    ℹ Using cloud API (default)'));
+      if (status.ollama.available && status.ollama.modelPulled) {
+        console.log(chalk.gray('    Tip: Set AI_PROVIDER=ollama for offline scanning'));
+      }
+    }
+    
+    console.log('');
+  });
+
 program
   .argument("[directory]", "Directory to scan")
   .option("-o, --output <file>", "Output report to JSON file")

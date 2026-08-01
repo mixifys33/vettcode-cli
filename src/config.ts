@@ -3,20 +3,23 @@
  * All API calls are now proxied through the VettCode backend
  * No API keys are stored in the CLI - everything goes through the secure backend
  * 
- * NEW: Ollama local AI support for offline scanning
+ * NEW: Ollama local AI support for offline scanning (OPTIONAL)
  */
 
 export const DEFAULT_CONFIG = {
   // Backend API URL (where CLI sends analysis requests)
   VETTCODE_API_URL: 'https://vettcodecli.vercel.app/api',
   
-  // Ollama configuration
+  // Ollama configuration (OPTIONAL - for users who want local AI)
   OLLAMA_HOST: 'http://localhost:11434',
   OLLAMA_MODEL: 'qwen2.5-coder:1.5b-instruct',
   
-  // AI Provider preference: 'ollama' | 'backend' | 'none'
-  AI_PROVIDER: 'ollama', // Default to local Ollama for privacy and speed
-  AI_PROVIDER_FALLBACK: 'true', // Enable fallback to backend if Ollama unavailable
+  // AI Provider preference: 'backend' (default) | 'ollama' | 'none'
+  // backend = Use VettCode cloud API (default, always works)
+  // ollama = Use local Ollama (must be installed separately)
+  // none = Static analysis only (no AI)
+  AI_PROVIDER: 'backend', // DEFAULT: Use cloud backend (existing behavior)
+  AI_PROVIDER_FALLBACK: 'true', // Enable fallback between providers
   
   // Default environment
   NODE_ENV: 'production',
