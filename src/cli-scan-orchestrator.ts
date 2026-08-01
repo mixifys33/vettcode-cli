@@ -11,6 +11,7 @@ import { selectFilesForQuickScan } from "./scan-priority";
 import type { CodeFile, VettReport } from "./types";
 import { getAnalysisPrompt } from "./prompts";
 import { analyzeWithAI } from "./api-client";
+import { generateBlueprint, type Blueprint } from "./blueprint";
 
 // Global flags for user-facing messages
 declare global {
@@ -28,6 +29,7 @@ export interface ScanProgress {
 
 export interface SmartScanResult {
   report: VettReport;
+  blueprint?: Blueprint;
   stats: {
     filesScanned: number;
     linesScanned: number;
@@ -47,10 +49,28 @@ export async function runSmartScan(
   ignoredCount: number,
   onProgress: (phase: string, pct: number, detail?: string) => void,
   mode: ScanMode = "quick",
-  disableAI: boolean = false
+  disableAI: boolean = false,
+  projectPath?: string
 ): Promise<SmartScanResult> {
   const aiFiles = mode === "quick" ? selectFilesForQuickScan(files) : files;
   const staticScopeLabel = mode === "quick" ? `${aiFiles.length} priority files` : `${files.length} files`;
+
+  // Phase 0: Blueprint Generation (if project path provided)
+  let blueprint: Blueprint | undefined;
+  if (projectPath) {
+    try {
+      onProgress("Blueprint", 5, "Mapping project architecture...");
+      blueprint = await generateBlueprint(projectPath, {
+        maxFiles: mode === "quick" ? 100 : undefined,
+        includeHotspots: mode === "deep",
+        includeCircularDeps: mode === "deep",
+      });
+      onProgress("Blueprint", 8, `Architecture mapped: ${blueprint.meta.totalFiles} files`);
+    } catch (error) {
+      console.warn("Blueprint generation failed, continuing without it:", error);
+      onProgress("Blueprint", 8, "Skipped (optional)");
+    }
+  }
 
   // Phase 1: Static Analysis
   onProgress("Static analysis", 10, `Pattern checks across ${files.length} files…`);
@@ -231,7 +251,7 @@ export async function runSmartScan(
     tokensSaved: `${tokenReduction}% (${Math.round((totalOriginalChars - totalExtractedChars) / 1000)}K chars)`,
   };
 
-  return { report, stats };
+  return { report, blueprint, stats };
 }
 
 async function runAIAnalysisCLI(

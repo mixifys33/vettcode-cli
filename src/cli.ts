@@ -360,7 +360,7 @@ ${chalk.bold.cyan('Interactive TUI Mode:')}
       const disableAI = options.ai === false; // --no-ai flag
 
       // Run smart scan with stage-based progress
-      const { report, stats } = await runSmartScan(
+      const { report, blueprint, stats } = await runSmartScan(
         projectName,
         files,
         0,
@@ -371,7 +371,11 @@ ${chalk.bold.cyan('Interactive TUI Mode:')}
           }
           
           // Update current stage based on phase
-          if (phase.includes('Static analysis')) {
+          if (phase.includes('Blueprint')) {
+            if (!display['currentStage'] || display['currentStage'] !== 'blueprint') {
+              display.startStage('static_analysis'); // Reuse static analysis visual
+            }
+          } else if (phase.includes('Static analysis')) {
             if (!display['currentStage'] || display['currentStage'] !== 'static_analysis') {
               display.startStage('static_analysis');
             }
@@ -390,7 +394,8 @@ ${chalk.bold.cyan('Interactive TUI Mode:')}
           }
         },
         scanMode,
-        disableAI
+        disableAI,
+        resolvedPath // Pass project path for blueprint generation
       );
 
       // Complete final stage
@@ -419,7 +424,7 @@ ${chalk.bold.cyan('Interactive TUI Mode:')}
       const shouldUpload = options.upload !== false;
       
       if (shouldUpload) {
-        await uploadReportToLandingPage(report, projectName, scanMode, reportPath, display);
+        await uploadReportToLandingPage(report, blueprint, projectName, scanMode, reportPath, display);
       } else {
         console.log(chalk.yellow(`\n  [!] Web upload disabled (--no-upload flag)`));
         console.log(chalk.cyan(`  [→] View local report:`));
@@ -743,6 +748,7 @@ function displayReport(report: VettReport, stats?: any): void {
  */
 async function uploadReportToLandingPage(
   report: VettReport,
+  blueprint: any,
   projectName: string,
   scanMode: "quick" | "deep",
   localReportPath: string,
@@ -765,6 +771,7 @@ async function uploadReportToLandingPage(
       id: reportId,
       projectName,
       ...report,
+      blueprint, // Include blueprint in report data
       scanMode,
       createdAt: new Date().toISOString(),
       expiresAt: expiresAt.toISOString(),
