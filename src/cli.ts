@@ -770,12 +770,19 @@ async function uploadReportToLandingPage(
     const reportData = {
       id: reportId,
       projectName,
-      ...report,
-      blueprint, // Include blueprint in report data
       scanMode,
       createdAt: new Date().toISOString(),
       expiresAt: expiresAt.toISOString(),
+      ...report, // Spread report after other fields
+      blueprint, // Override with blueprint (will be undefined if not generated)
     };
+    
+    // Debug: Log blueprint status
+    if (blueprint) {
+      display.verbose(`Blueprint included: ${blueprint.meta?.totalFiles} files, ${blueprint.functions?.length} functions`);
+    } else {
+      display.verbose('No blueprint data to upload');
+    }
     
     // Upload through backend API (handles ImageKit securely)
     display.verbose("Uploading to backend API...");
