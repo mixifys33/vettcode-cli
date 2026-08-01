@@ -26,7 +26,7 @@ export function buildDependencyGraph(parsedFiles: ParsedFile[], projectRoot: str
   // Create edges from imports
   for (const file of parsedFiles) {
     for (const imp of file.imports) {
-      const targetPath = resolveImport(imp, file.relativePath, projectRoot);
+      const targetPath = resolveImport(imp, file.relativePath, projectRoot, nodeMap);
       
       if (targetPath && nodeMap.has(targetPath)) {
         edges.push({
@@ -41,7 +41,12 @@ export function buildDependencyGraph(parsedFiles: ParsedFile[], projectRoot: str
   return { nodes, edges };
 }
 
-function resolveImport(importPath: string, fromFile: string, projectRoot: string): string | null {
+function resolveImport(
+  importPath: string,
+  fromFile: string,
+  projectRoot: string,
+  nodeMap: Map<string, DependencyNode>
+): string | null {
   // Ignore external packages
   if (!importPath.startsWith('.') && !importPath.startsWith('/')) {
     return null;
@@ -52,15 +57,26 @@ function resolveImport(importPath: string, fromFile: string, projectRoot: string
     const resolved = path.resolve(fromDir, importPath);
     const relative = path.relative(projectRoot, resolved);
 
-    // Try different extensions
-    const extensions = ['', '.ts', '.tsx', '.js', '.jsx', '.mjs', '.cjs'];
+    // Normalize path separators for consistency
+    const normalizedRelative = relative.replace(/\\/g, '/');
+
+    // Try different extensions and check if file exists in our node map
+    const extensions = ['', '.ts', '.tsx', '.js', '.jsx', '.mjs', '.cjs', '/index.ts', '/index.js'];
     for (const ext of extensions) {
-      const withExt = relative + ext;
-      // We'll check if this file exists in our parsed files later
-      return withExt;
+      const candidate = normalizedRelative + ext;
+      const candidateWithBackslash = candidate.replace(/\//g, '\\');
+      
+      // Check both forward and backslash versions
+      if (nodeMap.has(candidate)) {
+        return candidate;
+      }
+      if (nodeMap.has(candidateWithBackslash)) {
+        return candidateWithBackslash;
+      }
     }
 
-    return relative;
+    // If no match found, return the normalized path without extension
+    return null;
   } catch (error) {
     return null;
   }
